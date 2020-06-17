@@ -1,0 +1,12 @@
+[package]
+name = "kairoi"
+version = "0.1.0"
+authors = ["emerick42 <emerick42@pm.me>"]
+edition = "2018"
+
+[dependencies]
+chrono = { version = "0.4" }
+log = { version = "0.4.8" }
+nom = { version = "5.1.1" }
+simple_logger = { version = "1.6.0" }
+uuid = { version = "0.8.1", default-features = false, features = ["v4"] }
