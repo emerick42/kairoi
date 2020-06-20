@@ -46,6 +46,26 @@ impl Chainable for Set {
                     Some(Err(()))
                 }
             },
+            #[cfg(feature = "runner-amqp")]
+            "amqp" => {
+                if arguments.len() == 8 {
+                    let dsn = &arguments[5];
+                    let exchange = &arguments[6];
+                    let routing_key = &arguments[7];
+
+                    Some(Ok(Instruction::RuleSet {
+                        identifier: identifier.clone(),
+                        pattern: pattern.clone(),
+                        runner: Runner::Amqp {
+                            dsn: dsn.clone(),
+                            exchange: exchange.clone(),
+                            routing_key: routing_key.clone(),
+                        },
+                    }))
+                } else {
+                    Some(Err(()))
+                }
+            },
             _ => Some(Err(())),
         }
     }
