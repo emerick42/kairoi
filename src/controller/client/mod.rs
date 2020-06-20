@@ -45,7 +45,12 @@ impl Client {
                                     break;
                                 },
                                 Err(_) => {
-                                    // @TODO: Send an error response to the client.
+                                    // Send an error response to the client.
+                                    debug!("Invalid input {:?} from client {}.", &arguments, identifier);
+                                    match stream.write_all("ERROR\n".as_bytes()) {
+                                        Ok(_) => continue,
+                                        Err(_) => panic!("An unexpected error occurred while writing a client response."),
+                                    };
                                 },
                             };
                         },

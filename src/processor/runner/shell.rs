@@ -51,6 +51,9 @@ impl Runner for Shell {
 
                 Ok(())
             },
+            _ => {
+                Err(())
+            },
         }
     }
 }
