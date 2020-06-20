@@ -3,7 +3,6 @@ mod runner;
 use crate::execution::{Request, Response};
 use log::debug;
 use runner::Runner;
-use runner::shell::Shell as ShellRunner;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::thread;
@@ -13,7 +12,6 @@ use std::time::{Duration, Instant};
 pub fn start(execution_link: (Sender<Response>, Receiver<Request>)) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let (producer, consumer) = mpsc::channel();
-        let runner = ShellRunner::new();
 
         loop {
             let previous_time = Instant::now();
@@ -32,7 +30,7 @@ pub fn start(execution_link: (Sender<Response>, Receiver<Request>)) -> thread::J
 
             // Handle all received execution requests.
             for request in &requests {
-                match runner.execute(request, &producer) {
+                match Runner::execute(request, &producer) {
                     Ok(_) => {},
                     Err(_) => {
                         debug!("Unable to execute {:?}.", request);
