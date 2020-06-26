@@ -11,12 +11,23 @@ use crate::execution::runner::Runner as ExecutionRunner;
 use shell::{Request as ShellRequest, Shell};
 use std::sync::mpsc::Sender;
 
-pub struct Runner {}
+/// Defer execution to runners selected in the execution request.
+pub struct Runner {
+    amqp: Amqp,
+}
 
 impl Runner {
+    /// Create a new runner.
+    pub fn new() -> Runner {
+        Runner {
+            amqp: Amqp::new(),
+        }
+    }
+
     /// Execute the given request, using the given producer to send the execution response
-    /// asynchronously to the calling processor.
-    pub fn execute(request: &Request, producer: &Sender<Response>) -> Result<(), ()> {
+    /// asynchronously to the calling processor. Do not send an execution response when resulting
+    /// an error.
+    pub fn execute(&mut self, request: &Request, producer: &Sender<Response>) -> Result<(), ()> {
         #[allow(unreachable_patterns)]
         match request.get_runner() {
             #[cfg(feature = "runner-shell")]
@@ -28,7 +39,7 @@ impl Runner {
             },
             #[cfg(feature = "runner-amqp")]
             ExecutionRunner::Amqp { dsn, exchange, routing_key } => {
-                Amqp::execute(
+                self.amqp.execute(
                     AmqpRequest::new(
                         *request.get_identifier(),
                         request.get_job().clone(),

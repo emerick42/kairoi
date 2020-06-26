@@ -10,8 +10,10 @@ mod processor;
 mod query;
 mod sync;
 
+use log::Level;
+
 fn main() {
-    simple_logger::init().unwrap();
+    simple_logger::init_with_level(Level::Debug).unwrap();
 
     let mut handles = vec![];
 
