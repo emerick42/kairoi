@@ -5,9 +5,10 @@ authors = ["emerick42 <emerick42@pm.me>"]
 edition = "2018"
 
 [features]
-default = ["runner-shell"]
+default = ["runner-shell", "runner-amqp"]
 
 runner-shell = []
+runner-amqp = ["amiquip"]
 
 [dependencies]
 chrono = { version = "0.4" }
@@ -15,3 +16,5 @@ log = { version = "0.4.8" }
 nom = { version = "5.1.1" }
 simple_logger = { version = "1.6.0" }
 uuid = { version = "0.8.1", default-features = false, features = ["v4"] }
+# Optional dependencies.
+amiquip = { version = "0.3.3", optional = true }

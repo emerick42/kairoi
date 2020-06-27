@@ -40,6 +40,7 @@ impl Request {
 }
 
 /// An execution response to a request, using the same shared identifier.
+#[derive(Clone)]
 pub struct Response {
     identifier: Uuid,
     result: Result<(), ()>

@@ -3,7 +3,6 @@ mod runner;
 use crate::execution::{Request, Response};
 use log::debug;
 use runner::Runner;
-use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -11,13 +10,13 @@ use std::time::{Duration, Instant};
 /// Start the processor, spawning a thread and returning the join handle.
 pub fn start(execution_link: (Sender<Response>, Receiver<Request>)) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let (producer, consumer) = mpsc::channel();
+        let mut runner = Runner::new();
 
         loop {
             let previous_time = Instant::now();
 
             // Pull all execution requests.
-            let mut requests = Vec::new();
+            let mut requests = Vec::with_capacity(100);
             loop {
                 match execution_link.1.try_recv() {
                     Ok(request) => requests.push(request),
@@ -30,7 +29,7 @@ pub fn start(execution_link: (Sender<Response>, Receiver<Request>)) -> thread::J
 
             // Handle all received execution requests.
             for request in &requests {
-                match Runner::execute(request, &producer) {
+                match runner.execute(request, &execution_link.0) {
                     Ok(_) => {},
                     Err(_) => {
                         debug!("Unable to execute {:?}.", request);
@@ -41,19 +40,6 @@ pub fn start(execution_link: (Sender<Response>, Receiver<Request>)) -> thread::J
                         };
                     },
                 };
-            };
-
-            // Pull all response messages from runners to transmit results to the database.
-            match consumer.try_recv() {
-                Ok(response) => {
-                    if let Err(_) = execution_link.0.send(response) {
-                        panic!("Execution channel disconnected");
-                    };
-                },
-                Err(error) => match error {
-                    TryRecvError::Empty => {},
-                    TryRecvError::Disconnected => panic!("Confirmation channel disconnected."),
-                },
             };
 
             // Put the thread asleep to run at a maximum of 128 time per second.

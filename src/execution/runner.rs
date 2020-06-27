@@ -4,4 +4,10 @@ pub enum Runner {
     Shell {
         command: String,
     },
+    #[cfg(feature = "runner-amqp")]
+    Amqp {
+        dsn: String,
+        exchange: String,
+        routing_key: String,
+    },
 }
