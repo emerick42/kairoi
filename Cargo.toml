@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["emerick42 <emerick42@pm.me>"]
 edition = "2018"
 
+[features]
+default = ["runner-shell"]
+
+runner-shell = []
+
 [dependencies]
 chrono = { version = "0.4" }
 log = { version = "0.4.8" }

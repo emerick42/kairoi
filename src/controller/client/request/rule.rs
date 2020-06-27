@@ -1,5 +1,6 @@
 use crate::query::instruction::Instruction;
 use super::Chainable;
+#[cfg(feature = "runner-shell")]
 use crate::execution::runner::Runner;
 
 /// Build Rule Set requests from parsed arguments.
@@ -29,6 +30,7 @@ impl Chainable for Set {
         let runner = &arguments[4];
 
         match runner.as_str() {
+            #[cfg(feature = "runner-shell")]
             "shell" => {
                 if arguments.len() == 6 {
                     let command_line = &arguments[5];
