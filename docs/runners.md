@@ -35,7 +35,7 @@ echo "Job $1 has been executed." > test.log
 creating the rule:
 
 ```
-SET RULE app.default.rule app.job.0 shell script.sh
+RULE SET app.default.rule app.job.0 shell script.sh
 SET app.job.0 "2020-06-26 16:48:00"
 ```
 
@@ -59,8 +59,8 @@ The `amqp` runner is currently the runner that can handle the highest number of 
 #### Examples
 
 ```
-SET RULE app.default.rule app. amqp amqp://login:password@localhost:5672/myvirtualhost my_exchange my_routing_key
-SET RULE app.default.rule app. amqp amqp://my-rabbit@5672/ app_exchange app_kairoi
+RULE SET app.default.rule app. amqp amqp://login:password@localhost:5672/myvirtualhost my_exchange my_routing_key
+RULE SET app.default.rule app. amqp amqp://my-rabbit:5672/ app_exchange app_kairoi
 ```
 
 ## Internals
