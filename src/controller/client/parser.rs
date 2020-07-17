@@ -30,9 +30,9 @@ pub fn parse(input: &str) -> Result<(&str, Vec<String>), (&str, Error)> {
 fn do_parse<'a>(input: &'a str) -> IResult<&'a str, Vec<String>> {
     let space_before = take_while(|c| c == ' ');
     let space_after = take_while(|c| c == ' ');
-    // Parse a simple string like 123.it's_an_example (only space, newline, backslash and double quote characters are not allowed).
+    // Parse a simple string like 123.it's_an_example (only space, newline and double quote characters are not allowed).
     let simple_string = |input: &'a str| -> IResult<&'a str, String> {
-        let (input, output) = take_while1(|c| c != ' ' && c != '\n' && c != '\\' && c != '"')(input)?;
+        let (input, output) = take_while1(|c| c != ' ' && c != '\n' && c != '"')(input)?;
 
         Ok((input, output.to_string()))
     };
@@ -65,8 +65,8 @@ mod tests {
             Ok(("", vec![String::from("VERSION")])),
         );
         assert_eq!(
-            parse("   VERSION toto   32tata titi 111   \n"),
-            Ok(("", vec![String::from("VERSION"), String::from("toto"), String::from("32tata"), String::from("titi"), String::from("111")])),
+            parse("   VERSION toto   32t\\ata titi 111   \n"),
+            Ok(("", vec![String::from("VERSION"), String::from("toto"), String::from("32t\\ata"), String::from("titi"), String::from("111")])),
         );
         assert_eq!(
             parse("\"UNSET\"\n"),
