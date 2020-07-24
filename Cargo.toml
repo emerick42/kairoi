@@ -3,6 +3,11 @@ name = "kairoi"
 version = "0.1.0"
 authors = ["emerick42 <emerick42@pm.me>"]
 edition = "2018"
+description = "Kairoi is a Dynamic, Accurate and Scalable Time-based Job Scheduler."
+readme = "README.md"
+repository = "https://github.com/emerick42/kairoi"
+license = "MIT"
+publish = false
 
 [features]
 default = ["runner-shell", "runner-amqp"]
