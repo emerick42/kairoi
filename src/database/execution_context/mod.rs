@@ -1,12 +1,17 @@
+mod job;
+
 use chrono::DateTime;
 use chrono::offset::Utc;
-use crate::database::job::Job;
+use job::{Job as UnderlyingJob, Status as UnderlyingJobStatus, Storage as JobStorage};
 use std::collections::HashMap;
 use super::rule::Rule;
 
+pub type JobStatus = UnderlyingJobStatus;
+pub type Job = UnderlyingJob;
+
 /// A database execution context, memorizing all existing jobs and rules.
 pub struct ExecutionContext {
-    jobs: HashMap<String, Job>,
+    job_storage: JobStorage,
     rules: HashMap<String, Rule>,
     current_datetime: DateTime<Utc>,
 }
@@ -15,7 +20,7 @@ impl ExecutionContext {
     /// Create a new execution context.
     pub fn new() -> ExecutionContext {
         ExecutionContext {
-            jobs: HashMap::new(),
+            job_storage: JobStorage::new(),
             rules: HashMap::new(),
             current_datetime: Utc::now(),
         }
@@ -31,20 +36,20 @@ impl ExecutionContext {
         self.current_datetime
     }
 
-    /// Get the mutable job with the given identifier.
-    pub fn get_job_mut(&mut self, identifier: &str) -> Option<&mut Job> {
-        self.jobs.get_mut(identifier)
+    /// Get all jobs that need to be executed.
+    pub fn get_jobs_to_execute(&self) -> Vec<&Job> {
+        self.job_storage.get_to_execute(&self.current_datetime)
     }
 
-    /// Get all known jobs.
-    pub fn get_jobs(&self) -> Vec<&Job> {
-        self.jobs.values().collect()
+    /// Get the job with the given identifier, if there is one.
+    pub fn get_job(&self, identifier: &str) -> Option<&Job> {
+        self.job_storage.get(identifier)
     }
 
     /// Set a job in this execution context. If a job with the same identifier already exists,
     /// update its properties.
     pub fn set_job(&mut self, job: Job) {
-        self.jobs.insert(job.get_identifier().clone(), job);
+        self.job_storage.set(job);
     }
 
     /// Set a rule in this execution context. If a rule with the same identifier already exists,
