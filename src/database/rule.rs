@@ -3,7 +3,7 @@ use crate::execution::runner::Runner;
 /// Rules associate String patterns to configured Runners. A pattern is a simple String (no special
 /// character) matching all job identifiers starting with it. For example, the pattern "test." will
 /// match the job "test.0", but won't match the job "test0".
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Rule {
     identifier: String,
     pattern: String,

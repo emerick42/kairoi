@@ -1,7 +1,6 @@
-use crate::database::ExecutionContext;
-use crate::database::job::Status;
+use crate::database::execution_context::{ExecutionContext, Job, JobStatus};
 use crate::execution::{Request, Response};
-use crate::execution::job::Job;
+use crate::execution::job::Job as ExecutionJob;
 use log::debug;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -29,45 +28,58 @@ impl Handler {
 
     /// Check every waiting job, to notify when it should be executed.
     fn trigger(&mut self, context: &mut ExecutionContext) {
-        let current_datetime = context.get_current_datetime();
-        // Retrieve all jobs ready to be executed.
-        let mut jobs = Vec::new();
-        for job in context.get_jobs() {
-            match job.get_status() {
-                Status::Planned if *job.get_execution() <= current_datetime => {
-                    jobs.push(job.clone());
-                },
-                _ => {},
-            };
-        };
-        // Trigger the execution for each job.
-        for job in &mut jobs {
+        let current_datetime = context.get_current_datetime().clone();
+
+        let jobs = context.get_jobs_to_execute();
+        let mut triggering = Vec::with_capacity(jobs.len());
+        let mut failing = Vec::with_capacity(jobs.len());
+        for job in jobs {
             // Find a matching Runner.
-            match context.pair(&job.get_identifier()) {
+            match context.pair(job.get_identifier()) {
                 Some(rule) => {
-                    debug!("TRIGGER {:?} with {:?} at {}.", job, rule, current_datetime);
-                    let runner = rule.get_runner().clone();
-                    job.set_triggered().unwrap();
-                    context.set_job(job.clone());
-                    let identifier = Uuid::new_v4();
-                    let request = Request::new(
-                        identifier,
-                        Job::new(job.get_identifier().clone()),
-                        runner,
-                    );
-                    self.triggered.insert(identifier, request.clone());
-                    if let Err(_) = self.execution_link.0.send(request) {
-                        panic!("Execution channel disconnected.");
-                    };
+                    triggering.push((
+                        job.clone(),
+                        rule.clone(),
+                    ));
                 },
                 None => {
-                    debug!("Unable to find a Rule pairing {:?}.", job);
-                    debug!("MARK AS FAILED {:?} at {}.", job, current_datetime);
-                    let mut job = job.clone();
-                    job.set_failed().unwrap();
-                    context.set_job(job.clone());
+                    failing.push(job.clone());
                 },
             };
+        };
+
+        // Trigger all jobs that have been paired with a runner.
+        for (job, rule) in triggering {
+            debug!("TRIGGER {:?} with {:?} at {}.", &job, &rule, current_datetime);
+            let runner = rule.get_runner().clone();
+            let modified = Job::new(
+                job.get_identifier().clone(),
+                job.get_execution().clone(),
+                JobStatus::Triggered,
+            );
+            context.set_job(modified);
+            let identifier = Uuid::new_v4();
+            let request = Request::new(
+                identifier,
+                ExecutionJob::new(job.get_identifier().clone()),
+                runner,
+            );
+            self.triggered.insert(identifier, request.clone());
+            if let Err(_) = self.execution_link.0.send(request) {
+                panic!("Execution channel disconnected.");
+            };
+        };
+
+        // Mark all jobs that haven't as failed.
+        for job in &failing {
+            debug!("Unable to find a Rule pairing {:?}.", &job);
+            debug!("MARK AS FAILED {:?} at {}.", &job, current_datetime);
+            let job = Job::new(
+                job.get_identifier().clone(),
+                job.get_execution().clone(),
+                JobStatus::Failed,
+            );
+            context.set_job(job);
         };
     }
 
@@ -92,16 +104,26 @@ impl Handler {
                 Some(request) => {
                     let job = request.get_job();
                     let current_datetime = context.get_current_datetime();
-                    match context.get_job_mut(job.get_identifier()) {
+                    match context.get_job(job.get_identifier()) {
                         Some(job) => {
                             match response.get_result() {
                                 Ok(_) => {
                                     debug!("MARK AS EXECUTED {:?} at {}.", job, current_datetime);
-                                    job.set_executed().unwrap();
+                                    let job = Job::new(
+                                        job.get_identifier().clone(),
+                                        job.get_execution().clone(),
+                                        JobStatus::Executed,
+                                    );
+                                    context.set_job(job);
                                 },
                                 Err(_) => {
                                     debug!("MARK AS FAILED {:?} at {}.", job, current_datetime);
-                                    job.set_failed().unwrap();
+                                    let job = Job::new(
+                                        job.get_identifier().clone(),
+                                        job.get_execution().clone(),
+                                        JobStatus::Failed,
+                                    );
+                                    context.set_job(job);
                                 },
                             };
                         },
