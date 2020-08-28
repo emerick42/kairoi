@@ -9,36 +9,26 @@ use super::rule::Rule;
 pub type JobStatus = UnderlyingJobStatus;
 pub type Job = UnderlyingJob;
 
-/// A database execution context, memorizing all existing jobs and rules.
-pub struct ExecutionContext {
+pub type WriteResult = Result<(), ()>;
+
+/// A database Storage, memorizing all existing jobs and rules.
+pub struct Storage {
     job_storage: JobStorage,
     rules: HashMap<String, Rule>,
-    current_datetime: DateTime<Utc>,
 }
 
-impl ExecutionContext {
-    /// Create a new execution context.
-    pub fn new() -> ExecutionContext {
-        ExecutionContext {
+impl Storage {
+    /// Create a new Storage.
+    pub fn new() -> Storage {
+        Storage {
             job_storage: JobStorage::new(),
             rules: HashMap::new(),
-            current_datetime: Utc::now(),
         }
     }
 
-    /// Update the current datetime of this execution context, to be the more accurate possible.
-    pub fn update_clock(&mut self) {
-        self.current_datetime = Utc::now();
-    }
-
-    /// Get the current datetime of this execution context.
-    pub fn get_current_datetime(&self) -> DateTime<Utc> {
-        self.current_datetime
-    }
-
-    /// Get all jobs that need to be executed.
-    pub fn get_jobs_to_execute(&self) -> Vec<&Job> {
-        self.job_storage.get_to_execute(&self.current_datetime)
+    /// Get all jobs that need to be executed at the given datetime.
+    pub fn get_jobs_to_execute(&self, datetime: &DateTime<Utc>) -> Vec<&Job> {
+        self.job_storage.get_to_execute(datetime)
     }
 
     /// Get the job with the given identifier, if there is one.
@@ -48,14 +38,18 @@ impl ExecutionContext {
 
     /// Set a job in this execution context. If a job with the same identifier already exists,
     /// update its properties.
-    pub fn set_job(&mut self, job: Job) {
+    pub fn set_job(&mut self, job: Job) -> WriteResult {
         self.job_storage.set(job);
+
+        Ok(())
     }
 
     /// Set a rule in this execution context. If a rule with the same identifier already exists,
     /// update its properties.
-    pub fn set_rule(&mut self, rule: Rule) {
+    pub fn set_rule(&mut self, rule: Rule) -> WriteResult {
         self.rules.insert(rule.get_identifier().clone(), rule);
+
+        Ok(())
     }
 
     /// Pair the job with the given identifier to a matching rule.

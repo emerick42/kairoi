@@ -1,4 +1,6 @@
-use crate::database::execution_context::{ExecutionContext, Job, JobStatus};
+use chrono::DateTime;
+use chrono::offset::Utc;
+use crate::database::storage::{Storage, Job, JobStatus};
 use crate::execution::{Request, Response};
 use crate::execution::job::Job as ExecutionJob;
 use log::debug;
@@ -21,21 +23,19 @@ impl Handler {
     }
 
     /// Handle the execution link.
-    pub fn handle(&mut self, context: &mut ExecutionContext) {
-        self.trigger(context);
-        self.receive_responses(context);
+    pub fn handle(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
+        self.trigger(current_datetime, storage);
+        self.receive_responses(current_datetime, storage);
     }
 
     /// Check every waiting job, to notify when it should be executed.
-    fn trigger(&mut self, context: &mut ExecutionContext) {
-        let current_datetime = context.get_current_datetime().clone();
-
-        let jobs = context.get_jobs_to_execute();
+    fn trigger(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
+        let jobs = storage.get_jobs_to_execute(current_datetime);
         let mut triggering = Vec::with_capacity(jobs.len());
         let mut failing = Vec::with_capacity(jobs.len());
         for job in jobs {
             // Find a matching Runner.
-            match context.pair(job.get_identifier()) {
+            match storage.pair(job.get_identifier()) {
                 Some(rule) => {
                     triggering.push((
                         job.clone(),
@@ -57,7 +57,7 @@ impl Handler {
                 job.get_execution().clone(),
                 JobStatus::Triggered,
             );
-            context.set_job(modified);
+            storage.set_job(modified);
             let identifier = Uuid::new_v4();
             let request = Request::new(
                 identifier,
@@ -79,12 +79,12 @@ impl Handler {
                 job.get_execution().clone(),
                 JobStatus::Failed,
             );
-            context.set_job(job);
+            storage.set_job(job);
         };
     }
 
     /// Pull all received notification confirmations and handle them.
-    fn receive_responses(&mut self, context: &mut ExecutionContext) {
+    fn receive_responses(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
         let mut responses = Vec::new();
 
         loop {
@@ -103,8 +103,7 @@ impl Handler {
             match self.triggered.remove(response.get_identifier()) {
                 Some(request) => {
                     let job = request.get_job();
-                    let current_datetime = context.get_current_datetime();
-                    match context.get_job(job.get_identifier()) {
+                    match storage.get_job(job.get_identifier()) {
                         Some(job) => {
                             match response.get_result() {
                                 Ok(_) => {
@@ -114,7 +113,7 @@ impl Handler {
                                         job.get_execution().clone(),
                                         JobStatus::Executed,
                                     );
-                                    context.set_job(job);
+                                    storage.set_job(job);
                                 },
                                 Err(_) => {
                                     debug!("MARK AS FAILED {:?} at {}.", job, current_datetime);
@@ -123,7 +122,7 @@ impl Handler {
                                         job.get_execution().clone(),
                                         JobStatus::Failed,
                                     );
-                                    context.set_job(job);
+                                    storage.set_job(job);
                                 },
                             };
                         },
