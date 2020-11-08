@@ -14,8 +14,10 @@ impl Set {
     pub fn handle(identifier: &str, pattern: &str, runner: &Runner, current_datetime: &DateTime<Utc>, storage: &mut Storage) -> Result<(), ()> {
         let rule = Rule::new(identifier.to_string(), pattern.to_string(), runner.clone());
         debug!("RULE SET {:?} at {}.", &rule, current_datetime);
-        storage.set_rule(rule);
 
-        Ok(())
+        match storage.set_rule(rule) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
+        }
     }
 }

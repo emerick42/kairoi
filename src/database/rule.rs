@@ -34,6 +34,11 @@ impl Rule {
         &self.identifier
     }
 
+    /// Get the pattern.
+    pub fn get_pattern(&self) -> &String {
+        &self.pattern
+    }
+
     /// Get the runner.
     pub fn get_runner(&self) -> &Runner {
         &self.runner

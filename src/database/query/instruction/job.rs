@@ -26,18 +26,22 @@ impl Set {
                     },
                     _ => {
                         debug!("SET {:?} at {}.", &job, current_datetime);
-                        storage.set_job(job);
 
-                        Ok(())
+                        match storage.set_job(job) {
+                            Ok(_) => Ok(()),
+                            Err(_) => Err(()),
+                        }
                     },
                 }
             },
             None => {
                 // We insert this new job.
                 debug!("SET {:?} at {}.", &job, current_datetime);
-                storage.set_job(job);
 
-                Ok(())
+                match storage.set_job(job) {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(()),
+                }
             },
         }
     }

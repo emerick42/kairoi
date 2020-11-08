@@ -49,7 +49,7 @@ impl Handler {
         };
 
         // Trigger all jobs that have been paired with a runner.
-        for (job, rule) in triggering {
+        for (job, rule) in &triggering {
             debug!("TRIGGER {:?} with {:?} at {}.", &job, &rule, current_datetime);
             let runner = rule.get_runner().clone();
             let modified = Job::new(
@@ -57,7 +57,9 @@ impl Handler {
                 job.get_execution().clone(),
                 JobStatus::Triggered,
             );
-            storage.set_job(modified);
+            if let Err(_) = storage.set_job(modified) {
+                continue;
+            };
             let identifier = Uuid::new_v4();
             let request = Request::new(
                 identifier,
@@ -79,7 +81,9 @@ impl Handler {
                 job.get_execution().clone(),
                 JobStatus::Failed,
             );
-            storage.set_job(job);
+            if let Err(_) = storage.set_job(job) {
+                continue;
+            }
         };
     }
 
@@ -105,25 +109,30 @@ impl Handler {
                     let job = request.get_job();
                     match storage.get_job(job.get_identifier()) {
                         Some(job) => {
-                            match response.get_result() {
+                            let job = match response.get_result() {
                                 Ok(_) => {
                                     debug!("MARK AS EXECUTED {:?} at {}.", job, current_datetime);
-                                    let job = Job::new(
+
+                                    Job::new(
                                         job.get_identifier().clone(),
                                         job.get_execution().clone(),
                                         JobStatus::Executed,
-                                    );
-                                    storage.set_job(job);
+                                    )
                                 },
                                 Err(_) => {
                                     debug!("MARK AS FAILED {:?} at {}.", job, current_datetime);
-                                    let job = Job::new(
+
+                                    Job::new(
                                         job.get_identifier().clone(),
                                         job.get_execution().clone(),
                                         JobStatus::Failed,
-                                    );
-                                    storage.set_job(job);
+                                    )
                                 },
+                            };
+                            // If there is a storage error, act like there was no response from the
+                            // processor (leave the job in TRIGGERED state).
+                            if let Err(_) = storage.set_job(job) {
+                                continue;
                             };
                         },
                         None => {},
