@@ -1,33 +1,44 @@
-mod execution_context;
 mod execution;
 mod query;
 mod rule;
+mod storage;
 
+use chrono::offset::Utc;
 use crate::execution::{Request as ExecutionRequest, Response as ExecutionResponse};
 use crate::query::{Request as QueryRequest, Response as QueryResponse};
-use execution_context::ExecutionContext;
 use execution::Handler as ExecutionHandler;
 use query::Handler as QueryHandler;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
+use storage::Storage;
 
-/// Start the database, spawning a thread and returning the join handle.
+/// Start the Database, spawning a thread and returning the join handle.
+///
+/// The Database is one of the 3 mains components of the Kairoi architecture. It uses channels to
+/// receive queries from the Controller, to send query responses to the Controller, to send
+/// execution requests to the Processor, and to receive execution responses from the Processor. The
+/// Database runs in its own process, at its own framerate. The job and rule storage is delegated
+/// to an Storage. The Storage is initialized at the start of the Database process.
 pub fn start(
     query_link: (Sender<QueryResponse>, Receiver<QueryRequest>),
     execution_link: (Sender<ExecutionRequest>, Receiver<ExecutionResponse>),
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut context = ExecutionContext::new();
+        let mut storage = Storage::new();
         let mut execution_handler = ExecutionHandler::new(execution_link);
         let mut query_handler = QueryHandler::new(query_link);
+
+        if let Err(_) = storage.initialize() {
+            panic!("Unable to initialize the storage with the current logfile.");
+        };
 
         loop {
             let previous_time = Instant::now();
 
-            context.update_clock();
-            query_handler.handle(&mut context);
-            execution_handler.handle(&mut context);
+            let current_datetime = Utc::now();
+            query_handler.handle(&current_datetime, &mut storage);
+            execution_handler.handle(&current_datetime, &mut storage);
 
             // Put the thread asleep to run at a maximum of 128 time per second.
             let now = Instant::now();
