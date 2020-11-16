@@ -1,7 +1,28 @@
 use crate::execution::runner::Runner;
 use super::{Job, JobStatus};
 use super::Rule;
+use nom::Err as NomErr;
+use nom::error::ErrorKind;
+use nom::bytes::complete::{tag, take};
+use nom::number::complete::{be_i64, be_u16, be_u8};
+use nom::combinator::{all_consuming, flat_map};
+use nom::IResult;
+use nom::sequence::tuple;
+use nom::branch::alt;
+use chrono::offset::{TimeZone, Utc};
+use chrono::DateTime;
+use log::debug;
 
+#[derive(Debug, PartialEq)]
+pub enum Decoded {
+    Job(Job),
+    Rule(Rule),
+}
+#[derive(Debug, PartialEq)]
+pub enum DecodeError {
+    InvalidData,
+}
+pub type DecodeResult = Result<Decoded, DecodeError>;
 pub enum Encodable<'a> {
     Job(&'a Job),
     Rule(&'a Rule),
@@ -26,6 +47,140 @@ impl Encoder {
         }
     }
 
+    /// Decode the given data into a Decoded enum. See specialized encode methods for more details
+    /// on how each type of value is encoded.
+    pub fn decode<'a>(&self, data: &'a [u8]) -> DecodeResult {
+        // Handle job entries.
+        let job = |input: &'a [u8]| -> IResult<&'a [u8], Decoded> {
+            let entry_type_job = tag([0]);
+            let job_identifier = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                let job_identifier_size = be_u16;
+                let (input, identifier) = flat_map(job_identifier_size, take)(input)?;
+                let identifier = match String::from_utf8(identifier.to_vec()) {
+                    Ok(identifier) => identifier,
+                    Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                };
+
+                Ok((input, identifier))
+            };
+            let job_timestamp = |input: &'a [u8]| -> IResult<&'a [u8], DateTime<Utc>> {
+                let (input, timestamp) = be_i64(input)?;
+
+                Ok((input, Utc.timestamp(timestamp / 1_000_000_000, (timestamp % 1_000_000_000) as u32)))
+            };
+            let job_status = |input: &'a [u8]| -> IResult<&'a [u8], JobStatus> {
+                let (input_left, status) = be_u8(input)?;
+                let status = match status {
+                    0 => JobStatus::Planned,
+                    1 => JobStatus::Triggered,
+                    2 => JobStatus::Executed,
+                    3 => JobStatus::Failed,
+                    _ => return Err(NomErr::Error((input, ErrorKind::Tag))),
+                };
+
+                Ok((input_left, status))
+            };
+            let (input, (_, identifier, execution_date, status)) = tuple((entry_type_job, job_identifier, job_timestamp, job_status))(input)?;
+
+            Ok((input, Decoded::Job(Job::new(identifier, execution_date, status))))
+        };
+
+        // Handle rule entries.
+        let rule = |input: &'a [u8]| -> IResult<&'a [u8], Decoded> {
+            let entry_type_rule = tag([1]);
+            let rule_identifier = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                let size = be_u16;
+                let (input, identifier) = flat_map(size, take)(input)?;
+                let identifier = match String::from_utf8(identifier.to_vec()) {
+                    Ok(identifier) => identifier,
+                    Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                };
+
+                Ok((input, identifier))
+            };
+            let rule_pattern = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                let size = be_u16;
+                let (input, identifier) = flat_map(size, take)(input)?;
+                let identifier = match String::from_utf8(identifier.to_vec()) {
+                    Ok(identifier) => identifier,
+                    Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                };
+
+                Ok((input, identifier))
+            };
+            let rule_runner = |input: &'a [u8]| -> IResult<&'a [u8], Runner> {
+                let (input, runner_type) = be_u8(input)?;
+
+                #[allow(unreachable_patterns)]
+                match runner_type {
+                    #[cfg(feature = "runner-shell")]
+                    0 => {
+                        let command = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                            let size = be_u16;
+                            let (input, identifier) = flat_map(size, take)(input)?;
+                            let identifier = match String::from_utf8(identifier.to_vec()) {
+                                Ok(identifier) => identifier,
+                                Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                            };
+
+                            Ok((input, identifier))
+                        };
+
+                        let (input, command) = command(input)?;
+
+                        Ok((input, Runner::Shell { command: command }))
+                    },
+                    #[cfg(feature = "runner-amqp")]
+                    1 => {
+                        let dsn = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                            let size = be_u16;
+                            let (input, identifier) = flat_map(size, take)(input)?;
+                            let identifier = match String::from_utf8(identifier.to_vec()) {
+                                Ok(identifier) => identifier,
+                                Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                            };
+
+                            Ok((input, identifier))
+                        };
+                        let exchange = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                            let size = be_u16;
+                            let (input, identifier) = flat_map(size, take)(input)?;
+                            let identifier = match String::from_utf8(identifier.to_vec()) {
+                                Ok(identifier) => identifier,
+                                Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                            };
+
+                            Ok((input, identifier))
+                        };
+                        let routing_key = |input: &'a [u8]| -> IResult<&'a [u8], String> {
+                            let size = be_u16;
+                            let (input, identifier) = flat_map(size, take)(input)?;
+                            let identifier = match String::from_utf8(identifier.to_vec()) {
+                                Ok(identifier) => identifier,
+                                Err(_) => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                            };
+
+                            Ok((input, identifier))
+                        };
+
+                        let (input, (dsn, exchange, routing_key)) = tuple((dsn, exchange, routing_key))(input)?;
+
+                        Ok((input, Runner::Amqp { dsn: dsn, exchange: exchange, routing_key: routing_key }))
+                    },
+                    _ => return Err(NomErr::Failure((input, ErrorKind::Tag))),
+                }
+            };
+            let (input, (_, identifier, pattern, runner)) = tuple((entry_type_rule, rule_identifier, rule_pattern, rule_runner))(input)?;
+
+            Ok((input, Decoded::Rule(Rule::new(identifier, pattern, runner))))
+        };
+
+        match all_consuming(alt((job, rule)))(data) {
+            Ok((_, decoded)) => Ok(decoded),
+            Err(_) => Err(DecodeError::InvalidData)
+        }
+    }
+
     /// Encode the given job into an array of bytes.
     ///
     /// A job is encoded concatenating the following arrays of bytes:
@@ -44,6 +199,7 @@ impl Encoder {
         result[0] = 0;
         &result[1..3].copy_from_slice(&identifier_size.to_be_bytes());
         &result[3..(3 + identifier_size as usize)].copy_from_slice(job.get_identifier().as_bytes());
+        debug!("Encoding job {:?} with timestamp {:?}", job, job.get_execution().timestamp_nanos());
         &result[(3 + identifier_size as usize)..(11 + identifier_size as usize)].copy_from_slice(&job.get_execution().timestamp_nanos().to_be_bytes());
         result[11 + identifier_size as usize] = match job.get_status() {
             JobStatus::Planned => 0,
@@ -129,5 +285,49 @@ impl Encoder {
         &result[(5 + identifier_size as usize + pattern_size as usize)..].copy_from_slice(&encoded_runner);
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::offset::Utc;
+
+    #[test]
+    fn test_decode() {
+        let encoder = Encoder::new();
+
+        // Test basic valid buffers.
+        assert_eq!(
+            encoder.decode(&vec![0, 0, 4, 116, 111, 116, 111, 22, 71, 187, 92, 238, 225, 80, 0, 0]),
+            Ok(Decoded::Job(Job::new(String::from("toto"), Utc.ymd(2020, 11, 15).and_hms(16, 30, 00), JobStatus::Planned))),
+        );
+        assert_eq!(
+            encoder.decode(&vec![0, 0, 5, 116, 97, 116, 97, 116, 22, 71, 187, 92, 238, 225, 80, 0, 2]),
+            Ok(Decoded::Job(Job::new(String::from("tatat"), Utc.ymd(2020, 11, 15).and_hms(16, 30, 00), JobStatus::Executed))),
+        );
+        #[cfg(feature = "runner-shell")]
+        assert_eq!(
+            encoder.decode(&vec![1, 0, 1, 116, 0, 4, 116, 111, 116, 111, 0, 0, 4, 116, 105, 116, 105]),
+            Ok(Decoded::Rule(Rule::new(String::from("t"), String::from("toto"), Runner::Shell { command: String::from("titi") }))),
+        );
+        #[cfg(feature = "runner-amqp")]
+        assert_eq!(
+            encoder.decode(&vec![1, 0, 2, 116, 97, 0, 3, 116, 111, 116, 1, 0, 5, 116, 105, 116, 105, 116, 0, 0, 0, 1, 97]),
+            Ok(Decoded::Rule(Rule::new(String::from("ta"), String::from("tot"), Runner::Amqp { dsn: String::from("titit"), exchange: String::from(""), routing_key: String::from("a") }))),
+        );
+        // Test invalid entries.
+        assert_eq!(
+            encoder.decode(&vec![]),
+            Err(DecodeError::InvalidData),
+        );
+        assert_eq!(
+            encoder.decode(&vec![0, 0, 4]),
+            Err(DecodeError::InvalidData),
+        );
+        assert_eq!(
+            encoder.decode(&vec![0, 0, 4, 116, 111, 116, 111, 22, 71, 187, 92, 238, 225, 80, 0, 0, 255]),
+            Err(DecodeError::InvalidData),
+        );
     }
 }

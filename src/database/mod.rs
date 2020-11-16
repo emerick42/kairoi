@@ -29,6 +29,10 @@ pub fn start(
         let mut execution_handler = ExecutionHandler::new(execution_link);
         let mut query_handler = QueryHandler::new(query_link);
 
+        if let Err(_) = storage.initialize() {
+            panic!("Unable to initialize the storage with the current logfile.");
+        };
+
         loop {
             let previous_time = Instant::now();
 
