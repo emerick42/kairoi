@@ -1,5 +1,7 @@
-use crate::database::execution_context::ExecutionContext;
+use chrono::DateTime;
+use chrono::offset::Utc;
 use crate::database::rule::Rule;
+use crate::database::storage::Storage;
 use crate::execution::runner::Runner;
 use log::debug;
 
@@ -9,11 +11,13 @@ pub struct Set {}
 impl Set {
     /// Register a Rule with the given identifier, pattern and runner configuration to the given
     /// execution context.
-    pub fn handle(identifier: &str, pattern: &str, runner: &Runner, context: &mut ExecutionContext) -> Result<(), ()> {
+    pub fn handle(identifier: &str, pattern: &str, runner: &Runner, current_datetime: &DateTime<Utc>, storage: &mut Storage) -> Result<(), ()> {
         let rule = Rule::new(identifier.to_string(), pattern.to_string(), runner.clone());
-        debug!("RULE SET {:?} at {}.", &rule, context.get_current_datetime());
-        context.set_rule(rule);
+        debug!("RULE SET {:?} at {}.", &rule, current_datetime);
 
-        Ok(())
+        match storage.set_rule(rule) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
+        }
     }
 }

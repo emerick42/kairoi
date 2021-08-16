@@ -1,6 +1,8 @@
 mod instruction;
 
-use crate::database::ExecutionContext;
+use chrono::DateTime;
+use chrono::offset::Utc;
+use crate::database::storage::Storage;
 use crate::query::{Request, Response};
 use instruction::Handler as InstructionHandler;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -20,12 +22,12 @@ impl Handler {
     }
 
     /// Handle the query link.
-    pub fn handle(&mut self, context: &mut ExecutionContext) {
-        self.receive_requests(context);
+    pub fn handle(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
+        self.receive_requests(current_datetime, storage);
     }
 
     /// Pull all received queries and handle them.
-    fn receive_requests(&mut self, context: &mut ExecutionContext) {
+    fn receive_requests(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
         let mut requests = Vec::new();
 
         loop {
@@ -39,7 +41,7 @@ impl Handler {
         };
 
         for request in &requests {
-            let result = InstructionHandler::handle(request.get_instruction(), context);
+            let result = InstructionHandler::handle(request.get_instruction(), current_datetime, storage);
             if let Err(_) = self.producer.send(Response::new(request.clone(), result)) {
                 panic!("Query channel disconnected.");
             };
