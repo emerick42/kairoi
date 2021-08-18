@@ -1,17 +1,16 @@
 mod execution;
 mod query;
-mod rule;
 mod storage;
 
 use chrono::offset::Utc;
 use crate::execution::{Request as ExecutionRequest, Response as ExecutionResponse};
 use crate::query::{Request as QueryRequest, Response as QueryResponse};
-use execution::Handler as ExecutionHandler;
-use query::Handler as QueryHandler;
+use self::execution::Handler as ExecutionHandler;
+use self::query::Handler as QueryHandler;
+use self::storage::Storage;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
-use storage::Storage;
 
 /// Start the Database, spawning a thread and returning the join handle.
 ///
@@ -30,7 +29,7 @@ pub fn start(
         let mut query_handler = QueryHandler::new(query_link);
 
         if let Err(_) = storage.initialize() {
-            panic!("Unable to initialize the storage with the current logfile.");
+            panic!("Unable to initialize the storage from data persisted to the file system.");
         };
 
         loop {

@@ -1,8 +1,9 @@
 use chrono::DateTime;
 use chrono::offset::Utc;
-use crate::database::storage::{Storage, Job, JobStatus};
+use crate::database::storage::{Job, JobStatus, Runner, Storage};
 use crate::execution::{Request, Response};
 use crate::execution::job::Job as ExecutionJob;
+use crate::execution::runner::Runner as ExecutionRunner;
 use log::debug;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -64,7 +65,7 @@ impl Handler {
             let request = Request::new(
                 identifier,
                 ExecutionJob::new(job.get_identifier().clone()),
-                runner,
+                ExecutionRunner::from(runner),
             );
             self.triggered.insert(identifier, request.clone());
             if let Err(_) = self.execution_link.0.send(request) {
@@ -141,5 +142,15 @@ impl Handler {
                 None => {},
             };
         };
+    }
+}
+
+/// Convert Runner into ExecutionRunner.
+impl From<Runner> for ExecutionRunner {
+    fn from(runner: Runner) -> Self {
+        match runner {
+            Runner::Amqp { dsn, exchange, routing_key } => Self::Amqp { dsn, exchange, routing_key },
+            Runner::Shell { command } => Self::Shell { command },
+        }
     }
 }

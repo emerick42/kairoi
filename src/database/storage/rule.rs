@@ -1,5 +1,3 @@
-use crate::execution::runner::Runner;
-
 /// Rules associate String patterns to configured Runners. A pattern is a simple String (no special
 /// character) matching all job identifiers starting with it. For example, the pattern "test." will
 /// match the job "test.0", but won't match the job "test0".
@@ -43,4 +41,16 @@ impl Rule {
     pub fn get_runner(&self) -> &Runner {
         &self.runner
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Runner {
+    Amqp {
+        dsn: String,
+        exchange: String,
+        routing_key: String,
+    },
+    Shell {
+        command: String,
+    },
 }
