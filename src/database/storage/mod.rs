@@ -23,7 +23,7 @@ pub type WriteResult = Result<(), WriteError>;
 
 /// A database Storage, memorizing all existing jobs and rules.
 ///
-/// While the storage itself is in-memory, it encapsulates a write-ahead logger, making sure data
+/// While the storage itself is in-memory, it encapsulates a persistent storage, making sure data
 /// are synchronously written to the file system, so there is no data lost on system failure.
 pub struct Storage {
     job_storage: JobStorage,
@@ -50,6 +50,7 @@ impl Storage {
             Err(_) => return Err(InitializeError::UninitializablePersistentStorage),
         };
 
+        debug!("Reconstructing the in-memory storage from all {:?} persisted entries.", entries.len());
         for entry in entries {
             match entry {
                 Entry::Job(job) => {
