@@ -1,95 +1,61 @@
-use chrono::DateTime;
-use chrono::offset::Utc;
-use crate::database::storage::{Job, JobStatus, Runner, Storage};
-use crate::execution::{Request, Response};
+//! Database job execution, handling execution requests with the processor.
+//!
+//! It provides a [`Client`] to transmit job execution requests to the processor using the
+//! [`Client::trigger`] method. Responses should be pulled regularly using
+//! [`Client::pull_responses`]. The client uses standard [`std::sync::mpsc::Sender`] and
+//! [`std::sync::mpsc::Receiver`] as the underlying link with the processor.
+
+use crate::execution::{Request as ExecutionRequest, Response as ExecutionResponse};
 use crate::execution::job::Job as ExecutionJob;
 use crate::execution::runner::Runner as ExecutionRunner;
-use log::debug;
 use std::collections::HashMap;
-use std::sync::mpsc::{Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver as MpscReceiver, Sender as MpscSender, TryRecvError};
 use uuid::Uuid;
 
-pub struct Handler {
-    execution_link: (Sender<Request>, Receiver<Response>),
-    triggered: HashMap<Uuid, Request>,
+pub type Runner = ExecutionRunner;
+pub struct Job {
+    pub identifier: String,
+}
+pub struct Response {
+    pub job: String,
+    pub result: Result<(), ()>,
 }
 
-impl Handler {
-    /// Create a new handler on the given execution link..
-    pub fn new(execution_link: (Sender<Request>, Receiver<Response>)) -> Handler {
-        Handler {
+pub type Sender = MpscSender<ExecutionRequest>;
+pub type Receiver = MpscReceiver<ExecutionResponse>;
+
+pub struct Client {
+    execution_link: (MpscSender<ExecutionRequest>, MpscReceiver<ExecutionResponse>),
+    triggered: HashMap<Uuid, ExecutionRequest>,
+}
+
+impl Client {
+    /// Create a new client, using the given execution link to trigger job execution.
+    pub fn new(execution_link: (MpscSender<ExecutionRequest>, MpscReceiver<ExecutionResponse>)) -> Self {
+        Self {
             execution_link: execution_link,
             triggered: HashMap::new(),
         }
     }
 
-    /// Handle the execution link.
-    pub fn handle(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
-        self.trigger(current_datetime, storage);
-        self.receive_responses(current_datetime, storage);
-    }
+    /// Trigger the execution for the job having the given identifier, on the given runner.
+    pub fn trigger(&mut self, job: Job, runner: Runner) -> () {
+        let identifier = Uuid::new_v4();
+        let request = ExecutionRequest::new(
+            identifier,
+            ExecutionJob::new(job.identifier),
+            ExecutionRunner::from(runner),
+        );
 
-    /// Check every waiting job, to notify when it should be executed.
-    fn trigger(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
-        let jobs = storage.get_jobs_to_execute(current_datetime);
-        let mut triggering = Vec::with_capacity(jobs.len());
-        let mut failing = Vec::with_capacity(jobs.len());
-        for job in jobs {
-            // Find a matching Runner.
-            match storage.pair(job.get_identifier()) {
-                Some(rule) => {
-                    triggering.push((
-                        job.clone(),
-                        rule.clone(),
-                    ));
-                },
-                None => {
-                    failing.push(job.clone());
-                },
-            };
-        };
+        self.triggered.insert(identifier, request.clone());
 
-        // Trigger all jobs that have been paired with a runner.
-        for (job, rule) in &triggering {
-            debug!("TRIGGER {:?} with {:?} at {}.", &job, &rule, current_datetime);
-            let runner = rule.get_runner().clone();
-            let modified = Job::new(
-                job.get_identifier().clone(),
-                job.get_execution().clone(),
-                JobStatus::Triggered,
-            );
-            if let Err(_) = storage.set_job(modified) {
-                continue;
-            };
-            let identifier = Uuid::new_v4();
-            let request = Request::new(
-                identifier,
-                ExecutionJob::new(job.get_identifier().clone()),
-                ExecutionRunner::from(runner),
-            );
-            self.triggered.insert(identifier, request.clone());
-            if let Err(_) = self.execution_link.0.send(request) {
-                panic!("Execution channel disconnected.");
-            };
-        };
-
-        // Mark all jobs that haven't as failed.
-        for job in &failing {
-            debug!("Unable to find a Rule pairing {:?}.", &job);
-            debug!("MARK AS FAILED {:?} at {}.", &job, current_datetime);
-            let job = Job::new(
-                job.get_identifier().clone(),
-                job.get_execution().clone(),
-                JobStatus::Failed,
-            );
-            if let Err(_) = storage.set_job(job) {
-                continue;
-            }
+        if let Err(_) = self.execution_link.0.send(request) {
+            panic!("Execution channel disconnected.");
         };
     }
 
-    /// Pull all received notification confirmations and handle them.
-    fn receive_responses(&mut self, current_datetime: &DateTime<Utc>, storage: &mut Storage) {
+    /// Pull all responses received through the execution link.
+    pub fn pull_responses(&mut self) -> Vec<Response> {
         let mut responses = Vec::new();
 
         loop {
@@ -104,53 +70,14 @@ impl Handler {
             }
         };
 
-        for response in responses {
+        responses.into_iter().filter_map(|response: ExecutionResponse| {
             match self.triggered.remove(response.get_identifier()) {
-                Some(request) => {
-                    let job = request.get_job();
-                    match storage.get_job(job.get_identifier()) {
-                        Some(job) => {
-                            let job = match response.get_result() {
-                                Ok(_) => {
-                                    debug!("MARK AS EXECUTED {:?} at {}.", job, current_datetime);
-
-                                    Job::new(
-                                        job.get_identifier().clone(),
-                                        job.get_execution().clone(),
-                                        JobStatus::Executed,
-                                    )
-                                },
-                                Err(_) => {
-                                    debug!("MARK AS FAILED {:?} at {}.", job, current_datetime);
-
-                                    Job::new(
-                                        job.get_identifier().clone(),
-                                        job.get_execution().clone(),
-                                        JobStatus::Failed,
-                                    )
-                                },
-                            };
-                            // If there is a storage error, act like there was no response from the
-                            // processor (leave the job in TRIGGERED state).
-                            if let Err(_) = storage.set_job(job) {
-                                continue;
-                            };
-                        },
-                        None => {},
-                    };
-                },
-                None => {},
-            };
-        };
-    }
-}
-
-/// Convert Runner into ExecutionRunner.
-impl From<Runner> for ExecutionRunner {
-    fn from(runner: Runner) -> Self {
-        match runner {
-            Runner::Amqp { dsn, exchange, routing_key } => Self::Amqp { dsn, exchange, routing_key },
-            Runner::Shell { command } => Self::Shell { command },
-        }
+                Some(request) => Some(Response {
+                    job: request.get_job().get_identifier().to_string(),
+                    result: *response.get_result(),
+                }),
+                None => None,
+            }
+        }).collect()
     }
 }

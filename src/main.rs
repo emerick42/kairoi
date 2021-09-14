@@ -10,6 +10,7 @@ mod processor;
 mod query;
 mod sync;
 
+use database::Database;
 use log::Level;
 
 fn main() {
@@ -22,7 +23,7 @@ fn main() {
 
     // Spawn the controller, the database and the processor.
     handles.push(controller::start(query_owning_side));
-    handles.push(database::start(query_reverse_side, notification_owning_side));
+    handles.push(Database::start(query_reverse_side, notification_owning_side));
     handles.push(processor::start(notification_reverse_side));
 
     // Wait for all threads to finish.
