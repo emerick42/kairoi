@@ -6,16 +6,16 @@
 //! database runs in its own process, at its own framerate. The job and rule storage is delegated
 //! to a [`Storage`]. The [`Storage`] is initialized at the start of the database process.
 
-mod execution;
 mod framerate;
 mod query;
 mod storage;
+pub mod execution;
 
 use chrono::DateTime;
 use chrono::offset::Utc;
 use crate::query::{Request as QueryRequest, Response as QueryResponse};
 use log::debug;
-use self::execution::{Client as ExecutionClient, Job as ExecutionJob, Receiver as ExecutionReceiver, Runner as ExecutionRunner, Sender as ExecutionSender};
+use self::execution::{Client as ExecutionClient, Receiver as UnderlyingExecutionReceiver, Runner as ExecutionRunner, Sender as UnderlyingExecutionSender};
 use self::framerate::Clock;
 use self::query::Handler as QueryHandler;
 use self::storage::{Job, JobStatus, Runner, Storage};
@@ -28,6 +28,9 @@ pub struct Database {
     query_handler: QueryHandler,
     current_datetime: DateTime<Utc>,
 }
+
+pub type ExecutionSender = UnderlyingExecutionSender;
+pub type ExecutionReceiver = UnderlyingExecutionReceiver;
 
 impl Database {
     /// Start the Database, spawning a thread and returning the join handle.
@@ -60,7 +63,7 @@ impl Database {
                 database.query_handler.handle(&database.current_datetime, &mut database.storage);
 
                 database.trigger_execution();
-                database.handle_responses();
+                database.handle_results();
             });
         })
     }
@@ -99,7 +102,7 @@ impl Database {
             };
 
             self.execution_client.trigger(
-                ExecutionJob { identifier: job.get_identifier().clone() },
+                job.get_identifier().clone(),
                 ExecutionRunner::from(runner),
             );
         };
@@ -119,9 +122,9 @@ impl Database {
         };
     }
 
-    /// Pull all received execution responses and handle them.
-    fn handle_responses(&mut self) {
-        let responses = self.execution_client.pull_responses();
+    /// Pull all received execution results and handle them.
+    fn handle_results(&mut self) {
+        let responses = self.execution_client.pull_results();
 
         for response in responses {
             match self.storage.get_job(&response.job) {

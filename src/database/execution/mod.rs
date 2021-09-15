@@ -5,33 +5,31 @@
 //! [`Client::pull_responses`]. The client uses standard [`std::sync::mpsc::Sender`] and
 //! [`std::sync::mpsc::Receiver`] as the underlying link with the processor.
 
-use crate::execution::{Request as ExecutionRequest, Response as ExecutionResponse};
-use crate::execution::job::Job as ExecutionJob;
-use crate::execution::runner::Runner as ExecutionRunner;
+pub mod protocol;
+
+use crossbeam_channel::{Receiver as CrossbeamReceiver, Sender as CrossbeamSender, TryRecvError};
+use self::protocol::{Request as ProtocolRequest, Response as ProtocolResponse, Runner as ProtocolRunner};
 use std::collections::HashMap;
-use std::sync::mpsc::{Receiver as MpscReceiver, Sender as MpscSender, TryRecvError};
+use std::result::Result as StdResult;
 use uuid::Uuid;
 
-pub type Runner = ExecutionRunner;
-pub struct Job {
-    pub identifier: String,
-}
-pub struct Response {
+pub type Runner = ProtocolRunner;
+pub struct Result {
     pub job: String,
-    pub result: Result<(), ()>,
+    pub result: StdResult<(), ()>,
 }
 
-pub type Sender = MpscSender<ExecutionRequest>;
-pub type Receiver = MpscReceiver<ExecutionResponse>;
+pub type Sender = CrossbeamSender<ProtocolRequest>;
+pub type Receiver = CrossbeamReceiver<ProtocolResponse>;
 
 pub struct Client {
-    execution_link: (MpscSender<ExecutionRequest>, MpscReceiver<ExecutionResponse>),
-    triggered: HashMap<Uuid, ExecutionRequest>,
+    execution_link: (Sender, Receiver),
+    triggered: HashMap<Uuid, ProtocolRequest>,
 }
 
 impl Client {
     /// Create a new client, using the given execution link to trigger job execution.
-    pub fn new(execution_link: (MpscSender<ExecutionRequest>, MpscReceiver<ExecutionResponse>)) -> Self {
+    pub fn new(execution_link: (Sender, Receiver)) -> Self {
         Self {
             execution_link: execution_link,
             triggered: HashMap::new(),
@@ -39,13 +37,13 @@ impl Client {
     }
 
     /// Trigger the execution for the job having the given identifier, on the given runner.
-    pub fn trigger(&mut self, job: Job, runner: Runner) -> () {
+    pub fn trigger(&mut self, job: String, runner: Runner) -> () {
         let identifier = Uuid::new_v4();
-        let request = ExecutionRequest::new(
-            identifier,
-            ExecutionJob::new(job.identifier),
-            ExecutionRunner::from(runner),
-        );
+        let request = ProtocolRequest {
+            identifier: identifier,
+            job_identifier: job,
+            runner: runner,
+        };
 
         self.triggered.insert(identifier, request.clone());
 
@@ -54,8 +52,8 @@ impl Client {
         };
     }
 
-    /// Pull all responses received through the execution link.
-    pub fn pull_responses(&mut self) -> Vec<Response> {
+    /// Pull all execution results received through the execution link.
+    pub fn pull_results(&mut self) -> Vec<Result> {
         let mut responses = Vec::new();
 
         loop {
@@ -70,11 +68,11 @@ impl Client {
             }
         };
 
-        responses.into_iter().filter_map(|response: ExecutionResponse| {
-            match self.triggered.remove(response.get_identifier()) {
-                Some(request) => Some(Response {
-                    job: request.get_job().get_identifier().to_string(),
-                    result: *response.get_result(),
+        responses.into_iter().filter_map(|response: ProtocolResponse| {
+            match self.triggered.remove(&response.identifier) {
+                Some(request) => Some(Result {
+                    job: request.job_identifier,
+                    result: response.result,
                 }),
                 None => None,
             }

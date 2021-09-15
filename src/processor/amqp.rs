@@ -1,17 +1,28 @@
-use amiquip::{Channel, Connection, Error as AmqpError, Publish};
-use crate::execution::job::Job;
-use crate::execution::Response;
+use amiquip::Channel;
+use amiquip::Connection;
+use amiquip::Error as AmqpError;
+use amiquip::Publish;
+use crossbeam_channel::Receiver as CrossbeamReceiver;
+use crossbeam_channel::Sender as CrossbeamSender;
 use log::debug;
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, VecDeque};
-use std::sync::mpsc::Sender;
+use std::collections::HashMap;
+use std::collections::VecDeque;
 use uuid::Uuid;
+
+pub type Sender = CrossbeamSender<Response>;
+pub type Receiver = CrossbeamReceiver<Response>;
+
+pub struct Response {
+    pub identifier: Uuid,
+    pub result: Result<(), ()>,
+}
 
 /// An execution request about a job paired with an AMQP runner.
 #[derive(Debug)]
 pub struct Request {
     identifier: Uuid,
-    job: Job,
+    job_identifier: String,
     dsn: String,
     exchange: String,
     routing_key: String,
@@ -19,10 +30,10 @@ pub struct Request {
 
 impl Request {
     /// Create a new shell request.
-    pub fn new(identifier: Uuid, job: Job, dsn: String, exchange: String, routing_key: String) -> Request {
+    pub fn new(identifier: Uuid, job_identifier: String, dsn: String, exchange: String, routing_key: String) -> Request {
         Request {
             identifier: identifier,
-            job: job,
+            job_identifier: job_identifier,
             dsn: dsn,
             exchange: exchange,
             routing_key: routing_key,
@@ -44,7 +55,7 @@ impl Amqp {
     }
 
     /// Execute the given job if the runner configuration is of type shell.
-    pub fn execute(&mut self, request: Request, producer: &Sender<Response>) -> Result<(), ()> {
+    pub fn execute(&mut self, request: Request, producer: &Sender) -> Result<(), ()> {
         debug!("Executing {:?}.", request);
         let producer = producer.clone();
 
@@ -59,11 +70,14 @@ impl Amqp {
                     return Err(Error::InvalidExchange(error));
                 },
             };
-            if let Err(error) = exchange.publish(Publish::new(&request.job.get_identifier().as_bytes(), &request.routing_key)) {
+            if let Err(error) = exchange.publish(Publish::new(&request.job_identifier.as_bytes(), &request.routing_key)) {
                 return Err(Error::PublishingFailed(error));
             };
             debug!("AMQP runner successfully published {:?}.", &request);
-            producer.send(Response::new(request.identifier, Ok(()))).unwrap();
+            producer.send(Response {
+                identifier: request.identifier,
+                result: Ok(()),
+            }).unwrap();
 
             Ok(())
         }();
@@ -73,7 +87,10 @@ impl Amqp {
             Err(error) => {
                 debug!("AMQP runner failed to publish {:?} ({:?}).", &request, &error);
                 self.client.drop(&request.dsn);
-                producer.send(Response::new(request.identifier, Err(()))).unwrap();
+                producer.send(Response {
+                    identifier: request.identifier,
+                    result: Err(()),
+                }).unwrap();
             },
         };
 
