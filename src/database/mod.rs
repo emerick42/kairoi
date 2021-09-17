@@ -38,7 +38,7 @@ impl Database {
         query_link: (Sender<QueryResponse>, Receiver<QueryRequest>),
         execution_link: (ExecutionSender, ExecutionReceiver),
     ) -> thread::JoinHandle<()> {
-        thread::spawn(move || {
+        thread::Builder::new().name("kairoi/db".to_string()).spawn(move || {
             let mut database = Database {
                 storage: Storage::new(),
                 execution_client: ExecutionClient::new(execution_link),
@@ -65,7 +65,7 @@ impl Database {
                 database.trigger_execution();
                 database.handle_results();
             });
-        })
+        }).unwrap()
     }
 
     /// Check every waiting job, and trigger the execution when needed.

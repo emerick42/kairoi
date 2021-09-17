@@ -35,11 +35,11 @@ pub struct Processor {}
 impl Processor {
     /// Start the processor, spawning a thread and returning the join handle.
     pub fn start((sender, receiver): (Sender, Receiver)) -> thread::JoinHandle<()> {
-        thread::spawn(move || {
+        thread::Builder::new().name("kairoi/proc".to_string()).spawn(move || {
             let mut dispatcher = Dispatcher::new(sender, receiver);
 
             dispatcher.run()
-        })
+        }).unwrap()
     }
 }
 
