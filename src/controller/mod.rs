@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 /// Start the controller, spawning a thread and returning the join handle.
 pub fn start(query_link: (Sender<Request>, Receiver<Response>)) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
+    thread::Builder::new().name("kairoi/ctrl".to_string()).spawn(move || {
         let mut clients = HashMap::new();
         let mut identifier: u128 = 0;
 
@@ -84,5 +84,5 @@ pub fn start(query_link: (Sender<Request>, Receiver<Response>)) -> thread::JoinH
                 None => {},
             };
         }
-    })
+    }).unwrap()
 }
