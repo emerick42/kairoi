@@ -197,6 +197,9 @@ impl Storage {
         let mut writer = logfile::Writer::new(file);
 
         if let Err(_) = writer.write_sync(&encoded) {
+            // We close the logfile since we are not able to write it properly.
+            self.file = None;
+
             return Err(PersistError::WriteFailure);
         };
 
