@@ -15,7 +15,11 @@ use chrono::DateTime;
 use chrono::offset::Utc;
 use crate::query::{Request as QueryRequest, Response as QueryResponse};
 use log::debug;
-use self::execution::{Client as ExecutionClient, Receiver as UnderlyingExecutionReceiver, Runner as ExecutionRunner, Sender as UnderlyingExecutionSender};
+use self::execution::Client as ExecutionClient;
+use self::execution::Receiver as UnderlyingExecutionReceiver;
+use self::execution::Result as ExecutionResult;
+use self::execution::Runner as ExecutionRunner;
+use self::execution::Sender as UnderlyingExecutionSender;
 use self::framerate::Clock;
 use self::query::Handler as QueryHandler;
 use self::storage::{Job, JobStatus, Runner, Storage};
@@ -27,6 +31,7 @@ pub struct Database {
     execution_client: ExecutionClient,
     query_handler: QueryHandler,
     current_datetime: DateTime<Utc>,
+    unhandeld_results: Vec<ExecutionResult>,
 }
 
 pub type ExecutionSender = UnderlyingExecutionSender;
@@ -44,12 +49,14 @@ impl Database {
                 execution_client: ExecutionClient::new(execution_link),
                 query_handler: QueryHandler::new(query_link),
                 current_datetime: Utc::now(),
+                unhandeld_results: Vec::new(),
             };
 
             match database.storage.initialize() {
-                Ok(_triggered_jobs) => {
-                    // @TODO: Re-process "triggered" jobs when booting up (causing duplicated job
+                Ok(triggered_jobs) => {
+                    // Re-process "triggered" jobs when booting up (causing duplicated job
                     // executions), because there is no way to know results of previous executions.
+                    database.trigger_execution(triggered_jobs);
                 },
                 Err(_) => {
                     panic!("Unable to initialize the storage from data persisted to the file system.");
@@ -62,35 +69,35 @@ impl Database {
 
                 database.query_handler.handle(&database.current_datetime, &mut database.storage);
 
-                database.trigger_execution();
+                let jobs = database.storage.get_jobs_to_execute(&database.current_datetime);
+                database.trigger_execution(jobs);
                 database.handle_results();
             });
         }).unwrap()
     }
 
     /// Check every waiting job, and trigger the execution when needed.
-    fn trigger_execution(&mut self) {
-        let jobs = self.storage.get_jobs_to_execute(&self.current_datetime);
+    fn trigger_execution(&mut self, jobs: Vec<Job>) {
         let mut triggering = Vec::with_capacity(jobs.len());
-        let mut failing: Vec<Job> = Vec::with_capacity(jobs.len());
-        for job in jobs {
+        let mut failing = Vec::with_capacity(jobs.len());
+        for job in &jobs {
             // Find a matching Runner.
             match self.storage.pair(job.get_identifier()) {
                 Some(rule) => {
                     triggering.push((
-                        job.clone(),
-                        rule.clone(),
+                        job,
+                        rule,
                     ));
                 },
                 None => {
-                    failing.push(job.clone());
+                    failing.push(job);
                 },
             };
         };
 
         // Trigger all jobs that have been paired with a runner.
         for (job, rule) in &triggering {
-            debug!("TRIGGER {:?} with {:?} at {}.", &job, &rule, &self.current_datetime);
+            debug!("TRIGGER {:?} with {:?} at {}.", job, &rule, &self.current_datetime);
             let runner = rule.get_runner().clone();
             let modified = Job::new(
                 job.get_identifier().clone(),
@@ -109,8 +116,8 @@ impl Database {
 
         // Mark all jobs that haven't as failed.
         for job in &failing {
-            debug!("Unable to find a Rule pairing {:?}.", &job);
-            debug!("MARK AS FAILED {:?} at {}.", &job, &self.current_datetime);
+            debug!("Unable to find a Rule pairing {:?}.", job);
+            debug!("MARK AS FAILED {:?} at {}.", job, &self.current_datetime);
             let job = Job::new(
                 job.get_identifier().clone(),
                 job.get_execution().clone(),
@@ -123,10 +130,17 @@ impl Database {
     }
 
     /// Pull all received execution results and handle them.
+    ///
+    /// It uses an in-memory storage to remember previously pulled results, allowing new job states
+    /// to be written later in case of temporary persistent storage error. Jobs are still
+    /// considered in the `triggered` state as long as the results is not properly written in the
+    /// persistent storage. It must be noted that this storage will grow indefinitely if the
+    /// persistent storage is unwritable for a long time.
     fn handle_results(&mut self) {
-        let responses = self.execution_client.pull_results();
+        let mut results: Vec<_> = self.unhandeld_results.drain(..).collect();
+        results.extend(self.execution_client.pull_results());
 
-        for response in responses {
+        results.retain(|response| {
             match self.storage.get_job(&response.job) {
                 Some(job) => {
                     let job = match response.result {
@@ -149,15 +163,17 @@ impl Database {
                             )
                         },
                     };
-                    // If there is a storage error, act like there was no response from the
-                    // processor (leave the job in TRIGGERED state).
-                    if let Err(_) = self.storage.set_job(job) {
-                        continue;
-                    };
+
+                    match self.storage.set_job(job) {
+                        Ok(_) => false,
+                        Err(_) => true,
+                    }
                 },
-                None => {},
-            };
-        }
+                None => false,
+            }
+        });
+
+        self.unhandeld_results = results;
     }
 }
 
