@@ -15,7 +15,7 @@ pub type Runner = rule::Runner;
 pub enum InitializeError {
     UninitializablePersistentStorage,
 }
-pub type InitializeResult = Result<(), InitializeError>;
+pub type InitializeResult = Result<Vec<Job>, InitializeError>;
 pub enum WriteError {
     PersistenceFailure,
 }
@@ -41,7 +41,8 @@ impl Storage {
         }
     }
 
-    /// Initialize this storage with data from the persistent storage.
+    /// Initialize this storage with data from the persistent storage. It returns all jobs that are
+    /// in the `triggered` state (which is an temporary state, and thus should be resumed).
     pub fn initialize(&mut self) -> InitializeResult {
         debug!("Initialization started with persisted data.");
 
@@ -51,10 +52,16 @@ impl Storage {
         };
 
         debug!("Reconstructing the in-memory storage from all {:?} persisted entries.", entries.len());
+        let mut triggered = Vec::new();
         for entry in entries {
             match entry {
                 Entry::Job(job) => {
-                    self.job_storage.set(Job::from(job));
+                    let job = Job::from(job);
+                    self.job_storage.set(job.clone());
+
+                    if *job.get_status() == JobStatus::Triggered {
+                        triggered.push(job);
+                    }
                 },
                 Entry::Rule(rule) => {
                     self.rules.insert(rule.identifier.clone(), Rule::from(rule));
@@ -64,11 +71,11 @@ impl Storage {
 
         debug!("Initialization properly done with persisted data.");
 
-        Ok(())
+        Ok(triggered)
     }
 
     /// Get all jobs that need to be executed at the given datetime.
-    pub fn get_jobs_to_execute(&self, datetime: &DateTime<Utc>) -> Vec<&Job> {
+    pub fn get_jobs_to_execute(&self, datetime: &DateTime<Utc>) -> Vec<Job> {
         self.job_storage.get_to_execute(datetime)
     }
 
@@ -112,7 +119,7 @@ impl Storage {
     }
 
     /// Pair the job with the given identifier to a matching rule.
-    pub fn pair(&self, job: &String) -> Option<&Rule> {
+    pub fn pair(&self, job: &String) -> Option<Rule> {
         let mut prioritized_rule = None;
 
         for rule in self.rules.values() {
@@ -132,7 +139,7 @@ impl Storage {
         };
 
         match prioritized_rule {
-            Some((_, rule)) => Some(rule),
+            Some((_, rule)) => Some(rule.clone()),
             None => None,
         }
     }

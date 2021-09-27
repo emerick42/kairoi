@@ -75,7 +75,7 @@ impl Storage
 
     /// Retrieve all jobs to be executed at the given current_datetime (included). Only retrieve
     /// jobs in the Planned status.
-    pub fn get_to_execute(&self, current_datetime: &DateTime<Utc>) -> Vec<&Job> {
+    pub fn get_to_execute(&self, current_datetime: &DateTime<Utc>) -> Vec<Job> {
         // Retrieve the position of the first element having an execution time beyond the current
         // time, then return all the previous elements of the to_execute vector.
         match self.to_execute.iter().position(|element| element.get_execution() > current_datetime) {
@@ -83,7 +83,7 @@ impl Storage
                 let mut result = Vec::with_capacity(position);
 
                 for job in &self.to_execute[0..position] {
-                    result.push(job);
+                    result.push(job.clone());
                 };
 
                 result
@@ -92,7 +92,7 @@ impl Storage
                 let mut result = Vec::with_capacity(self.to_execute.len());
 
                 for job in &self.to_execute[..] {
-                    result.push(job);
+                    result.push(job.clone());
                 };
 
                 result
