@@ -8,6 +8,12 @@ Kairoi is a **Time-based Job Scheduler**. It works as a server allowing its clie
 
 Once the job execution time is past, Kairoi automatically triggers a job execution on a matching configured runner (read more about runners in the [Kairoi Runners documentation](runners.md)).
 
+### Summary
+
+- [Kairoi Client Protocol Documentation](client-protocol.md)
+- [Kairoi Runners Documentation](runners.md)
+- [Kairoi Server Configuration Reference](configuration.md)
+
 ## Usage
 
 ## Internals

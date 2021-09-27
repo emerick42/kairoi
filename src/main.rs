@@ -1,30 +1,49 @@
 extern crate chrono;
+extern crate config;
 extern crate crossbeam_channel;
 extern crate log;
 extern crate nom;
+extern crate serde_derive;
+extern crate serde;
 extern crate simple_logger;
 
+mod configuration;
 mod controller;
 mod database;
 mod execution;
+mod logger;
 mod processor;
 mod query;
 mod sync;
 
 use crossbeam_channel::select;
 use crossbeam_channel::unbounded;
-use log::Level;
+use self::configuration::Configuration;
+use self::configuration::LogLevel as ConfigurationLogLevel;
 use self::database::Database;
 use self::database::execution::protocol::Request as DatabaseExecutionRequest;
 use self::database::execution::protocol::Response as DatabaseExecutionResponse;
 use self::database::execution::protocol::Runner as DatabaseExecutionRunner;
+use self::logger::Level as LoggerLevel;
+use self::logger::Logger;
 use self::processor::Processor;
 use self::processor::protocol::Request as ProcessorExecutionRequest;
 use self::processor::protocol::Response as ProcessorExecutionResponse;
 use self::processor::protocol::Runner as ProcessorExecutionRunner;
 
 fn main() {
-    simple_logger::init_with_level(Level::Debug).unwrap();
+    let configuration = match Configuration::new() {
+        Ok(configuration) => configuration,
+        Err(message) => {
+            Logger::initialize(LoggerLevel::Error);
+            log::error!("Unable to load the configuration file: {}.", message);
+
+            return;
+        },
+    };
+
+    Logger::initialize(LoggerLevel::from(configuration.log.level));
+    log::debug!("Booting with the following configuration: {:?}.", &configuration);
 
     let (query_owning_side, query_reverse_side) = sync::link();
     let (database_execution_request_sender, execution_request_receiver) = unbounded();
@@ -86,6 +105,19 @@ impl From<ProcessorExecutionResponse> for DatabaseExecutionResponse {
         Self {
             identifier: response.identifier,
             result: response.result,
+        }
+    }
+}
+
+impl From<ConfigurationLogLevel> for LoggerLevel {
+    fn from(level: ConfigurationLogLevel) -> Self {
+        match level {
+            ConfigurationLogLevel::Off => LoggerLevel::Off,
+            ConfigurationLogLevel::Error => LoggerLevel::Error,
+            ConfigurationLogLevel::Warn => LoggerLevel::Warn,
+            ConfigurationLogLevel::Info => LoggerLevel::Info,
+            ConfigurationLogLevel::Debug => LoggerLevel::Debug,
+            ConfigurationLogLevel::Trace => LoggerLevel::Trace,
         }
     }
 }
