@@ -17,7 +17,7 @@ pub fn start(query_link: (Sender<Request>, Receiver<Response>)) -> thread::JoinH
         let mut clients = HashMap::new();
         let mut identifier: u128 = 0;
 
-        let bind = String::from("127.0.0.1:5678");
+        let bind = String::from("0.0.0.0:5678");
         let server = TcpListener::bind(&bind).unwrap();
         server.set_nonblocking(true).unwrap();
 
