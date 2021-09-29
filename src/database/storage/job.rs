@@ -169,7 +169,7 @@ mod test {
         storage.set(job4.clone());
         assert_eq!(
             storage.get_to_execute(&now),
-            vec![&job1, &job3],
+            vec![job1, job3],
         );
     }
     #[test]
@@ -191,14 +191,14 @@ mod test {
         storage.set(job4.clone());
         assert_eq!(
             storage.get_to_execute(&now),
-            vec![&job1, &job3],
+            vec![job1, job3.clone()],
         );
 
         let job1 = Job::new(String::from("job.1"), datetime1, Status::Triggered);
         storage.set(job1.clone());
         assert_eq!(
             storage.get_to_execute(&now),
-            vec![&job3],
+            vec![job3],
         );
     }
 }
