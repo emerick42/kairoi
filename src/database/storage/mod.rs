@@ -3,7 +3,6 @@ mod rule;
 mod persistence;
 
 use chrono::{DateTime, offset::Utc};
-use log::{debug, error};
 use self::job::{Storage as JobStorage};
 use self::persistence::{Entry, Job as PersistentJob, JobStatus as PersistentJobStatus, Rule as PersistentRule, Runner as PersistentRunner, Storage as PersistentStorage};
 use std::collections::HashMap;
@@ -44,14 +43,14 @@ impl Storage {
     /// Initialize this storage with data from the persistent storage. It returns all jobs that are
     /// in the `triggered` state (which is an temporary state, and thus should be resumed).
     pub fn initialize(&mut self) -> InitializeResult {
-        debug!("Initialization started with persisted data.");
+        log::debug!("Initialization started with persisted data.");
 
         let entries = match self.persistent_storage.initialize() {
             Ok(entries) => entries,
             Err(_) => return Err(InitializeError::UninitializablePersistentStorage),
         };
 
-        debug!("Reconstructing the in-memory storage from all {:?} persisted entries.", entries.len());
+        log::debug!("Reconstructing the in-memory storage from all {:?} persisted entries.", entries.len());
         let mut triggered = Vec::new();
         for entry in entries {
             match entry {
@@ -69,7 +68,7 @@ impl Storage {
             };
         };
 
-        debug!("Initialization properly done with persisted data.");
+        log::info!("Initialization properly done with persisted data.");
 
         Ok(triggered)
     }
@@ -94,7 +93,7 @@ impl Storage {
                 Ok(())
             },
             Err(_) => {
-                error!("Unable to persist the job {:?} to the storage.", &job);
+                log::error!("Unable to persist the job {:?} to the storage.", &job);
 
                 Err(WriteError::PersistenceFailure)
             },
@@ -111,7 +110,7 @@ impl Storage {
                 Ok(())
             },
             Err(_) => {
-                error!("Unable to persist the rule {:?} to the storage.", &rule);
+                log::error!("Unable to persist the rule {:?} to the storage.", &rule);
 
                 Err(WriteError::PersistenceFailure)
             }
