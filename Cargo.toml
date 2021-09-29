@@ -22,5 +22,8 @@ nom = { version = "6.2.1" }
 simple_logger = { version = "1.6.0" }
 uuid = { version = "0.8.1", default-features = false, features = ["v4"] }
 crossbeam-channel = { version = "0.5.1" }
+config = { version = "0.11.0", default-features = false, features = ["toml"] }
+serde = { version = "1.0.130", features = ["derive"] }
+serde_derive = { version = "1.0.130" }
 # Optional dependencies.
 amiquip = { version = "0.3.3", optional = true }
