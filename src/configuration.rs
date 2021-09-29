@@ -34,10 +34,32 @@ pub struct Log {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ControllerListen (String);
+impl ToString for ControllerListen {
+    fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
+impl Default for ControllerListen {
+    fn default() -> Self {
+        Self ("127.0.0.1:5678".to_string())
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Controller {
+    #[serde(default)]
+    pub listen: ControllerListen,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Configuration {
     #[serde(default)]
     pub log: Log,
+    #[serde(default)]
+    pub controller: Controller,
 }
 
 impl Configuration {
