@@ -11,8 +11,8 @@ Currently, there are two main instructions recognized by Kairoi servers:
 Here is a basic usage example, defining a default rule matching all jobs having identifiers starting by `app.` with the Shell runner configured to execute the file `script.sh`, then creating a job `app.domain.job.1` to be triggered at `2020-06-17 21:47:16 UTC`:
 
 ```
-RULE SET app.rule.default app. shell script.sh
-SET app.domain.job.1 "2020-06-17 21:47:16"
+0 RULE SET app.rule.default app. shell script.sh
+1 SET app.domain.job.1 "2020-06-17 21:47:16"
 ```
 
 ## Usage
@@ -37,8 +37,8 @@ If a job with the given identifier is already set, it will update its execution 
 #### Examples
 
 ```
-SET app.domain.job.1 "2020-06-17 22:15:43"
-SET "my emoji job \U+1F613" "2020-06-17 22:16:13"
+0 SET app.domain.job.1 "2020-06-17 22:15:43"
+1 SET "my emoji job \U+1F613" "2020-06-17 22:16:13"
 ```
 
 ### Rule Set
@@ -58,8 +58,8 @@ This instruction registers a rule with the given identifier. This rule will matc
 #### Examples
 
 ```
-RULE SET app.rule.default app. shell script.sh
-RULE SET "my precise rule" "my emoji job \U+1F613" shell /bin/job_handler
+0 RULE SET app.rule.default app. shell script.sh
+1 RULE SET "my precise rule" "my emoji job \U+1F613" shell /bin/job_handler
 ```
 
 ## Internals

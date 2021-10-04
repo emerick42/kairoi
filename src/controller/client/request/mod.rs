@@ -26,12 +26,12 @@ impl Builder {
     }
 
     /// Build a query request from the given arguments.
-    pub fn build(&self, client: &Client, arguments: &Vec<String>) -> Result<Request, ()> {
+    pub fn build(&self, client: &Client, identifier: &String, arguments: &Vec<String>) -> Result<Request, ()> {
         // Try all builders until a request is built.
         for builder in &self.builders {
             match builder.build(arguments) {
                 Some(result) => match result {
-                    Ok(instruction) => return Ok(Request::new(*client, instruction)),
+                    Ok(instruction) => return Ok(Request::new(*client, identifier.clone(), instruction)),
                     Err(_) => return Err(()),
                 },
                 None => continue,
