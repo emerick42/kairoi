@@ -21,6 +21,7 @@ use crossbeam_channel::unbounded;
 use self::configuration::Configuration;
 use self::configuration::LogLevel as ConfigurationLogLevel;
 use self::controller::Controller;
+use self::database::Configuration as DatabaseConfiguration;
 use self::database::Database;
 use self::database::execution::protocol::Request as DatabaseExecutionRequest;
 use self::database::execution::protocol::Response as DatabaseExecutionResponse;
@@ -54,7 +55,13 @@ fn main() {
 
     // Spawn the controller, the database and the processor.
     Controller::start(configuration.controller.listen.to_string(), query_owning_side);
-    Database::start(query_reverse_side, (database_execution_request_sender, database_execution_response_receiver));
+    Database::start(
+        query_reverse_side,
+        (database_execution_request_sender, database_execution_response_receiver),
+        DatabaseConfiguration {
+            storage_persistence_fsync_on_persist: configuration.database.fsync_on_persist,
+        },
+    );
     Processor::start((processor_execution_response_sender, processor_execution_request_receiver));
 
     loop {

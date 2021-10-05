@@ -5,6 +5,7 @@ mod persistence;
 use chrono::{DateTime, offset::Utc};
 use self::job::{Storage as JobStorage};
 use self::persistence::{Entry, Job as PersistentJob, JobStatus as PersistentJobStatus, Rule as PersistentRule, Runner as PersistentRunner, Storage as PersistentStorage};
+use self::persistence::Configuration as PersistenceConfiguration;
 use std::collections::HashMap;
 
 pub type JobStatus = job::Status;
@@ -19,6 +20,9 @@ pub enum WriteError {
     PersistenceFailure,
 }
 pub type WriteResult = Result<(), WriteError>;
+pub struct Configuration {
+    pub persistence_fsync_on_persist: bool,
+}
 
 /// A database Storage, memorizing all existing jobs and rules.
 ///
@@ -32,11 +36,13 @@ pub struct Storage {
 
 impl Storage {
     /// Create a new Storage.
-    pub fn new() -> Storage {
+    pub fn new(configuration: Configuration) -> Storage {
         Storage {
             job_storage: JobStorage::new(),
             rules: HashMap::new(),
-            persistent_storage: PersistentStorage::new(),
+            persistent_storage: PersistentStorage::new(PersistenceConfiguration {
+                fsync_on_persist: configuration.persistence_fsync_on_persist,
+            }),
         }
     }
 

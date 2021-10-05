@@ -80,6 +80,9 @@ pub enum PersistError {
     WriteFailure,
 }
 pub type PersistResult = Result<(), PersistError>;
+pub struct Configuration {
+    pub fsync_on_persist: bool,
+}
 
 const COMPRESSION_THRESHOLD: usize = 5000;
 
@@ -88,16 +91,18 @@ pub struct Storage {
     file: Option<File>,
     process: Option<Process>,
     logfile_size: usize,
+    configuration: Configuration,
 }
 
 impl Storage {
     /// Create a new Storage.
-    pub fn new() -> Storage {
+    pub fn new(configuration: Configuration) -> Storage {
         Storage {
             encoder: Encoder::new(),
             file: None,
             process: None,
             logfile_size: 0,
+            configuration: configuration,
         }
     }
 
@@ -196,11 +201,23 @@ impl Storage {
 
         let mut writer = logfile::Writer::new(file);
 
-        if let Err(_) = writer.write_sync(&encoded) {
-            // We close the logfile since we are not able to write it properly.
-            self.file = None;
+        match self.configuration.fsync_on_persist {
+            true => {
+                if let Err(_) = writer.write_sync(&encoded) {
+                    // We close the logfile since we are not able to write it properly.
+                    self.file = None;
 
-            return Err(PersistError::WriteFailure);
+                    return Err(PersistError::WriteFailure);
+                };
+            },
+            false => {
+                if let Err(_) = writer.write(&encoded) {
+                    // We close the logfile since we are not able to write it properly.
+                    self.file = None;
+
+                    return Err(PersistError::WriteFailure);
+                };
+            },
         };
 
         self.logfile_size += 1;
