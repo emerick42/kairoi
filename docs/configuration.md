@@ -49,4 +49,10 @@ The `database` table contains all configuration options related to Kairoi's data
 
 This option enables or disables the `fsync` operation on each data persist operation. Disabling it will prevent Kairoi to provide "Durability" (the D in ACID), but may improve performances a lot on some systems. It can be disabled in cases where all data written to Kairoi can be reconstructed from zero. When not sure, this option should be left to its default value.
 
+#### Framerate
+
+`database.framerate`: `Integer` (default: `512`)
+
+This option configures the maximum framerate of the database component. The framerate is the number of cycles executed per second by the database. Only numbers between `1` and `65535` are valid. While it configures the maximum framerate (preventing to overcharge the CPU), the algorithm also tries to run the closest possible from this framerate. Increasing the framerate increases the rate at which the database handles write requests and triggers jobs. A value of `512` means 512 cycles per second, and so checking for write requests or jobs triggers should happens once every 2ms, bringing an average latency of 1ms. A value of `128` would bring the average latency to 4ms. This option should be set following your CPU availability: the more is the better, but also requiring more CPU.
+
 ## Internals

@@ -19,12 +19,12 @@ use std::time::{Duration, Instant};
 use std::thread;
 
 pub struct Clock {
-    framerate: u8,
+    framerate: u16,
 }
 
 impl Clock {
     /// Create a new clock, ticking at the given framerate (in tick per second).
-    pub fn with_framerate(framerate: u8) -> Self {
+    pub fn with_framerate(framerate: u16) -> Self {
         Clock {
             framerate: framerate,
         }

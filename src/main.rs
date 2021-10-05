@@ -6,6 +6,7 @@ extern crate nom;
 extern crate serde_derive;
 extern crate serde;
 extern crate simple_logger;
+extern crate validator;
 
 mod configuration;
 mod controller;
@@ -60,6 +61,7 @@ fn main() {
         (database_execution_request_sender, database_execution_response_receiver),
         DatabaseConfiguration {
             storage_persistence_fsync_on_persist: configuration.database.fsync_on_persist,
+            framerate: configuration.database.framerate as u16,
         },
     );
     Processor::start((processor_execution_response_sender, processor_execution_request_receiver));

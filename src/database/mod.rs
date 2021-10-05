@@ -39,6 +39,7 @@ pub type ExecutionSender = UnderlyingExecutionSender;
 pub type ExecutionReceiver = UnderlyingExecutionReceiver;
 pub struct Configuration {
     pub storage_persistence_fsync_on_persist: bool,
+    pub framerate: u16,
 }
 
 impl Database {
@@ -70,7 +71,7 @@ impl Database {
                 },
             };
 
-            let clock = Clock::with_framerate(128);
+            let clock = Clock::with_framerate(configuration.framerate);
             clock.start(|| {
                 database.current_datetime = Utc::now();
 
