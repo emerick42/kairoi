@@ -12,6 +12,9 @@ level = "info" # One of "trace", "debug", "info", "warn", "error" or "off".
 
 [controller]
 listen = "127.0.0.1:5678" # You can use "0.0.0.0:5678" to accept connections from any client.
+
+[database]
+fsync_on_persist = true # Setting false can improve performances at the price of durability.
 ```
 
 ## Usage
@@ -35,5 +38,15 @@ The `controller` table contains all configuration options related to Kairoi's co
 `controller.listen`: `String` (default: `127.0.0.1:5678`)
 
 This option configures the address on which the controller listens to clients. It can be used to restrict access to certain clients. By default, it uses the most restrictive `127.0.0.1:5678`, accepting only connections from localhost clients. It can be set to `0.0.0.0:5678` to accept any client. The port can also be set to `127.0.0.1:0` to request that the OS assigns a port to the listener (although currently, the assigned port is only retrievable from `info` logs in a human readable format).
+
+### Database
+
+The `database` table contains all configuration options related to Kairoi's database, the component responsible for storing jobs and rules, and triggering job executions.
+
+#### Fsync On Persist
+
+`database.fsync_on_persist`: `Boolean` (default: `true`)
+
+This option enables or disables the `fsync` operation on each data persist operation. Disabling it will prevent Kairoi to provide "Durability" (the D in ACID), but may improve performances a lot on some systems. It can be disabled in cases where all data written to Kairoi can be reconstructed from zero. When not sure, this option should be left to its default value.
 
 ## Internals

@@ -55,11 +55,26 @@ pub struct Controller {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct Database {
+    pub fsync_on_persist: bool,
+}
+impl Default for Database {
+    fn default() -> Self {
+        Self {
+            fsync_on_persist: true,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Configuration {
     #[serde(default)]
     pub log: Log,
     #[serde(default)]
     pub controller: Controller,
+    #[serde(default)]
+    pub database: Database,
 }
 
 impl Configuration {

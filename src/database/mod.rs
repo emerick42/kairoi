@@ -23,6 +23,7 @@ use self::execution::Sender as UnderlyingExecutionSender;
 use self::framerate::Clock;
 use self::query::Handler as QueryHandler;
 use self::storage::{Job, JobStatus, Runner, Storage};
+use self::storage::Configuration as StorageConfiguration;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
@@ -36,16 +37,22 @@ pub struct Database {
 
 pub type ExecutionSender = UnderlyingExecutionSender;
 pub type ExecutionReceiver = UnderlyingExecutionReceiver;
+pub struct Configuration {
+    pub storage_persistence_fsync_on_persist: bool,
+}
 
 impl Database {
     /// Start the Database, spawning a thread and returning the join handle.
     pub fn start(
         query_link: (Sender<QueryResponse>, Receiver<QueryRequest>),
         execution_link: (ExecutionSender, ExecutionReceiver),
+        configuration: Configuration,
     ) -> thread::JoinHandle<()> {
         thread::Builder::new().name("kairoi/db".to_string()).spawn(move || {
             let mut database = Database {
-                storage: Storage::new(),
+                storage: Storage::new(StorageConfiguration {
+                    persistence_fsync_on_persist: configuration.storage_persistence_fsync_on_persist,
+                }),
                 execution_client: ExecutionClient::new(execution_link),
                 query_handler: QueryHandler::new(query_link),
                 current_datetime: Utc::now(),
