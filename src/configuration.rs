@@ -57,6 +57,7 @@ pub struct Controller {
 #[derive(Debug, Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Database {
+    pub persistence: bool,
     pub fsync_on_persist: bool,
     #[validate(range(min = 1, max = 65535))]
     pub framerate: i64,
@@ -64,6 +65,7 @@ pub struct Database {
 impl Default for Database {
     fn default() -> Self {
         Self {
+            persistence: true,
             fsync_on_persist: true,
             framerate: 512,
         }

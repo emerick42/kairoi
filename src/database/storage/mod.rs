@@ -21,6 +21,7 @@ pub enum WriteError {
 }
 pub type WriteResult = Result<(), WriteError>;
 pub struct Configuration {
+    pub persistence: bool,
     pub persistence_fsync_on_persist: bool,
 }
 
@@ -32,6 +33,7 @@ pub struct Storage {
     job_storage: JobStorage,
     rules: HashMap<String, Rule>,
     persistent_storage: PersistentStorage,
+    configuration: Configuration,
 }
 
 impl Storage {
@@ -43,12 +45,19 @@ impl Storage {
             persistent_storage: PersistentStorage::new(PersistenceConfiguration {
                 fsync_on_persist: configuration.persistence_fsync_on_persist,
             }),
+            configuration: configuration,
         }
     }
 
     /// Initialize this storage with data from the persistent storage. It returns all jobs that are
     /// in the `triggered` state (which is an temporary state, and thus should be resumed).
     pub fn initialize(&mut self) -> InitializeResult {
+        if !self.configuration.persistence {
+            log::info!("Initialization skipped because of the no-persistence option.");
+
+            return Ok(vec![])
+        }
+
         log::debug!("Initialization started with persisted data.");
 
         let entries = match self.persistent_storage.initialize() {
@@ -92,6 +101,12 @@ impl Storage {
     /// Set a job in this execution context. If a job with the same identifier already exists,
     /// update its properties.
     pub fn set_job(&mut self, job: Job) -> WriteResult {
+        if !self.configuration.persistence {
+            self.job_storage.set(job);
+
+            return Ok(());
+        }
+
         match self.persistent_storage.persist(Entry::Job(PersistentJob::from(job.clone()))) {
             Ok(_) => {
                 self.job_storage.set(job);
@@ -109,6 +124,12 @@ impl Storage {
     /// Set a rule in this execution context. If a rule with the same identifier already exists,
     /// update its properties.
     pub fn set_rule(&mut self, rule: Rule) -> WriteResult {
+        if !self.configuration.persistence {
+            self.rules.insert(rule.get_identifier().clone(), rule);
+
+            return Ok(());
+        }
+
         match self.persistent_storage.persist(Entry::Rule(PersistentRule::from(rule.clone()))) {
             Ok(_) => {
                 self.rules.insert(rule.get_identifier().clone(), rule);
