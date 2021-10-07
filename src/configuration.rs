@@ -9,6 +9,7 @@ use config::ConfigError;
 use config::File;
 use config::FileFormat;
 use serde::Deserialize;
+use validator::Validate;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -53,20 +54,23 @@ pub struct Controller {
     pub listen: ControllerListen,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Database {
     pub fsync_on_persist: bool,
+    #[validate(range(min = 1, max = 65535))]
+    pub framerate: i64,
 }
 impl Default for Database {
     fn default() -> Self {
         Self {
             fsync_on_persist: true,
+            framerate: 512,
         }
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Configuration {
     #[serde(default)]
@@ -74,6 +78,7 @@ pub struct Configuration {
     #[serde(default)]
     pub controller: Controller,
     #[serde(default)]
+    #[validate]
     pub database: Database,
 }
 
@@ -83,7 +88,14 @@ impl Configuration {
     /// case of error.
     pub fn new() -> Result<Self, String> {
         match Self::load() {
-            Ok(configuration) => Ok(configuration),
+            Ok(configuration) => {
+                match configuration.validate() {
+                    Ok(_) => {},
+                    Err(error) => return Err(error.to_string()),
+                };
+
+                Ok(configuration)
+            },
             Err(error) => Err(error.to_string()),
         }
     }
