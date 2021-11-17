@@ -27,3 +27,31 @@ $> cargo build
 ```
 
 at the root of this repository. It will automatically download and install all required dependencies.
+
+## Installation using Docker
+
+To use Kairoi with Docker, you can use the following Dockerfile to build and run a Kairoi server:
+
+```Dockerfile
+
+ARG RUST_VERSION=1
+
+FROM rust:${RUST_VERSION}-alpine AS builder
+
+RUN set -ex \
+    && apk add --no-cache --virtual .build-deps git musl-dev openssl-dev \
+    && git clone https://github.com/emerick42/kairoi.git /usr/src/kairoi \
+	&& cd /usr/src/kairoi \
+	&& cargo install --path .
+
+WORKDIR /usr/src/kairoi
+
+FROM alpine
+
+COPY --from=builder /usr/local/cargo/bin/kairoi /usr/local/bin/kairoi
+
+CMD ["kairoi"]
+
+EXPOSE [5678]
+
+```
