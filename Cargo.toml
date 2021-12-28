@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/emerick42/kairoi"
 license = "MIT"
 publish = false
+rust-version = "1.57.0"
 
 [features]
 default = ["runner-shell", "runner-amqp"]

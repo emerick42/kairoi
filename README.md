@@ -16,7 +16,7 @@ Kairoi currently targets running on Linux operating systems.
 
 ## Development
 
-Developping on Kairoi requires you to have [Rust installed on your machine](https://www.rust-lang.org/tools/install) in its latest version (`1.54.0` as of today).
+Developping on Kairoi requires you to have [Rust installed on your machine](https://www.rust-lang.org/tools/install).
 
 ### Installation
 

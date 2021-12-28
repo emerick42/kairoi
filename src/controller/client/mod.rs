@@ -69,14 +69,14 @@ impl Client {
                         let buffer = match bytes_to_parse {
                             Some(bytes_to_parse) => {
                                 let mut copied_buffer = vec![0; bytes_to_parse.len() + length];
-                                &copied_buffer[0..bytes_to_parse.len()].copy_from_slice(&bytes_to_parse);
-                                &copied_buffer[bytes_to_parse.len()..bytes_to_parse.len() + length].copy_from_slice(&buffer[0..length]);
+                                copied_buffer[0..bytes_to_parse.len()].copy_from_slice(&bytes_to_parse);
+                                copied_buffer[bytes_to_parse.len()..bytes_to_parse.len() + length].copy_from_slice(&buffer[0..length]);
 
                                 copied_buffer
                             },
                             None => {
                                 let mut copied_buffer = vec![0; length];
-                                &copied_buffer[..].copy_from_slice(&buffer[..length]);
+                                copied_buffer[..].copy_from_slice(&buffer[..length]);
 
                                 copied_buffer
                             },

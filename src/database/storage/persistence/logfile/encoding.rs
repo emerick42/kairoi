@@ -28,8 +28,8 @@ impl Encoder {
         match entry.len() <= u32::MAX as usize {
             true => {
                 let mut encoded = vec![0; 4 + entry.len()];
-                &encoded[0..4].copy_from_slice(&(entry.len() as u32).to_be_bytes());
-                &encoded[4..].copy_from_slice(entry);
+                encoded[0..4].copy_from_slice(&(entry.len() as u32).to_be_bytes());
+                encoded[4..].copy_from_slice(entry);
 
                 Ok(encoded)
             },

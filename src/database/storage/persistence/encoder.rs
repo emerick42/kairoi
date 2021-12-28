@@ -159,9 +159,9 @@ impl Encoder {
 
         let mut result = vec![0; 12 + identifier_size as usize];
         result[0] = 0;
-        &result[1..3].copy_from_slice(&identifier_size.to_be_bytes());
-        &result[3..(3 + identifier_size as usize)].copy_from_slice(job.identifier.as_bytes());
-        &result[(3 + identifier_size as usize)..(11 + identifier_size as usize)].copy_from_slice(&job.execution.timestamp_nanos().to_be_bytes());
+        result[1..3].copy_from_slice(&identifier_size.to_be_bytes());
+        result[3..(3 + identifier_size as usize)].copy_from_slice(job.identifier.as_bytes());
+        result[(3 + identifier_size as usize)..(11 + identifier_size as usize)].copy_from_slice(&job.execution.timestamp_nanos().to_be_bytes());
         result[11 + identifier_size as usize] = match job.status {
             JobStatus::Planned => 0,
             JobStatus::Triggered => 1,
@@ -209,12 +209,12 @@ impl Encoder {
                 };
                 let mut result = vec![0; 7 + dsn_size as usize + exchange_size as usize + routing_key_size as usize];
                 result[0] = 1;
-                &result[1..3].copy_from_slice(&dsn_size.to_be_bytes());
-                &result[3..(3 + dsn_size as usize)].copy_from_slice(dsn.as_bytes());
-                &result[(3 + dsn_size as usize)..(5 + dsn_size as usize)].copy_from_slice(&exchange_size.to_be_bytes());
-                &result[(5 + dsn_size as usize)..(5 + dsn_size as usize + exchange_size as usize)].copy_from_slice(exchange.as_bytes());
-                &result[(5 + dsn_size as usize + exchange_size as usize)..(7 + dsn_size as usize + exchange_size as usize)].copy_from_slice(&routing_key_size.to_be_bytes());
-                &result[(7 + dsn_size as usize + exchange_size as usize)..].copy_from_slice(routing_key.as_bytes());
+                result[1..3].copy_from_slice(&dsn_size.to_be_bytes());
+                result[3..(3 + dsn_size as usize)].copy_from_slice(dsn.as_bytes());
+                result[(3 + dsn_size as usize)..(5 + dsn_size as usize)].copy_from_slice(&exchange_size.to_be_bytes());
+                result[(5 + dsn_size as usize)..(5 + dsn_size as usize + exchange_size as usize)].copy_from_slice(exchange.as_bytes());
+                result[(5 + dsn_size as usize + exchange_size as usize)..(7 + dsn_size as usize + exchange_size as usize)].copy_from_slice(&routing_key_size.to_be_bytes());
+                result[(7 + dsn_size as usize + exchange_size as usize)..].copy_from_slice(routing_key.as_bytes());
 
                 result
             },
@@ -225,8 +225,8 @@ impl Encoder {
                 };
                 let mut result = vec![0; 3 + command_size as usize];
                 result[0] = 0;
-                &result[1..3].copy_from_slice(&command_size.to_be_bytes());
-                &result[3..].copy_from_slice(command.as_bytes());
+                result[1..3].copy_from_slice(&command_size.to_be_bytes());
+                result[3..].copy_from_slice(command.as_bytes());
 
                 result
             },
@@ -235,11 +235,11 @@ impl Encoder {
         // Encode the rule.
         let mut result = vec![0; 5 + identifier_size as usize + pattern_size as usize + encoded_runner.len()];
         result[0] = 1;
-        &result[1..3].copy_from_slice(&identifier_size.to_be_bytes());
-        &result[3..(3 + identifier_size as usize)].copy_from_slice(rule.identifier.as_bytes());
-        &result[(3 + identifier_size as usize)..(5 + identifier_size as usize)].copy_from_slice(&pattern_size.to_be_bytes());
-        &result[(5 + identifier_size as usize)..(5 + identifier_size as usize + pattern_size as usize)].copy_from_slice(rule.pattern.as_bytes());
-        &result[(5 + identifier_size as usize + pattern_size as usize)..].copy_from_slice(&encoded_runner);
+        result[1..3].copy_from_slice(&identifier_size.to_be_bytes());
+        result[3..(3 + identifier_size as usize)].copy_from_slice(rule.identifier.as_bytes());
+        result[(3 + identifier_size as usize)..(5 + identifier_size as usize)].copy_from_slice(&pattern_size.to_be_bytes());
+        result[(5 + identifier_size as usize)..(5 + identifier_size as usize + pattern_size as usize)].copy_from_slice(rule.pattern.as_bytes());
+        result[(5 + identifier_size as usize + pattern_size as usize)..].copy_from_slice(&encoded_runner);
 
         Ok(result)
     }
