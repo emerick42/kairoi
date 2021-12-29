@@ -35,7 +35,7 @@ use self::processor::protocol::Response as ProcessorExecutionResponse;
 use self::processor::protocol::Runner as ProcessorExecutionRunner;
 
 fn main() {
-    let configuration = match Configuration::new() {
+    let configuration = match Configuration::new(None) {
         Ok(configuration) => configuration,
         Err(message) => {
             Logger::initialize(LoggerLevel::Error);
