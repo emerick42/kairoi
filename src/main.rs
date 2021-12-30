@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate clap;
 extern crate config;
 extern crate crossbeam_channel;
 extern crate log;
@@ -8,6 +9,7 @@ extern crate serde;
 extern crate simple_logger;
 extern crate validator;
 
+mod cli;
 mod configuration;
 mod controller;
 mod database;
@@ -19,6 +21,7 @@ mod sync;
 
 use crossbeam_channel::select;
 use crossbeam_channel::unbounded;
+use self::cli::Application;
 use self::configuration::Configuration;
 use self::configuration::LogLevel as ConfigurationLogLevel;
 use self::controller::Controller;
@@ -35,7 +38,9 @@ use self::processor::protocol::Response as ProcessorExecutionResponse;
 use self::processor::protocol::Runner as ProcessorExecutionRunner;
 
 fn main() {
-    let configuration = match Configuration::new(None) {
+    let arguments = Application::handle_arguments();
+
+    let configuration = match Configuration::new(arguments.configuration_path.as_deref()) {
         Ok(configuration) => configuration,
         Err(message) => {
             Logger::initialize(LoggerLevel::Error);
