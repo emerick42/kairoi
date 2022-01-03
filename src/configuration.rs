@@ -95,8 +95,8 @@ impl Configuration {
     /// The default path is set at compilation time, by using the CONFIGURATION_PATH environment
     /// variable. When this variable is not set, it defaults to `configuration.toml`, loading the
     /// file relatively to the executable launch.
-    pub fn new(path: Option<String>) -> Result<Self, String> {
-        match Self::load(path) {
+    pub fn new(configuration_path: Option<&str>) -> Result<Self, String> {
+        match Self::load(configuration_path) {
             Ok(configuration) => {
                 match configuration.validate() {
                     Ok(_) => {},
@@ -109,12 +109,12 @@ impl Configuration {
         }
     }
 
-    fn load(path: Option<String>) -> Result<Self, ConfigError> {
+    fn load(configuration_path: Option<&str>) -> Result<Self, ConfigError> {
         let mut configuration = Config::default();
 
         let file =
-            match path {
-                Some(path) => File::with_name(&path),
+            match configuration_path {
+                Some(path) => File::with_name(path),
                 None => match option_env!("CONFIGURATION_PATH") {
                     Some(path) => File::with_name(path),
                     None => File::with_name("configuration.toml"),

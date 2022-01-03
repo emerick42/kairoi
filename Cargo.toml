@@ -27,5 +27,6 @@ config = { version = "0.11.0", default-features = false, features = ["toml"] }
 serde = { version = "~1.0.130", features = ["derive"] }
 serde_derive = { version = "~1.0.130" }
 validator = { version = "0.14.0", features = ["derive"] }
+clap = { version = "~3.0.0", default-features = false, features = ["std", "cargo"] }
 # Optional dependencies.
 amiquip = { version = "0.3.3", optional = true }
