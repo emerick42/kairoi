@@ -2,7 +2,7 @@
 
 ## Quick Words
 
-Kairoi servers can be configured at runtime using a [TOML](https://toml.io/en/) configuration file. The configuration file must be located at `configuration.toml`, relative to the executable directory. Since every option has a default value, a Kairoi server can be started without any configuration file.
+Kairoi servers can be configured at runtime using a [TOML](https://toml.io/en/) configuration file. With the default compilation parameters (you can read more on compilation parameters in the [Kairoi Compilation documentation](compilation.md)), the configuration is read from  the file `configuration.toml`, relative to the executable directory. Since every option has a default value, a Kairoi server can be started without any configuration file.
 
 Here is an example of configuration file with all default options explicitly set:
 

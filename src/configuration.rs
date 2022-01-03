@@ -1,8 +1,13 @@
 //! Kairoi's main configuration, loading the user's runtime configuration.
 //!
-//! The user's runtime configuration is loaded from the file `configuration.toml`, relative to the
-//! executable directory. Every configuration option has a default value, allowing to start the
-//! server without a configuration file.
+//! The user's runtime configuration is loaded from either a given file, or from the default path
+//! set at compilation time. The `CONFIGURATION_PATH` environment variable is read during
+//! compilation. If it's empty, the default path is set to `configuration.toml`. Every
+//! configuration option has a default value, allowing to start the server withtout a configuration
+//! file.
+//!
+//! A configuration file's path can be either absolute or relative. In case of a relative path,
+//! the path is computed starting from the launch directory.
 
 use config::Config;
 use config::ConfigError;
@@ -83,11 +88,15 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    /// Load the configuration from the `configuration.toml` file. It returns a properly
-    /// instantiated configuration tree in case of success, or a message describing the error in
-    /// case of error.
-    pub fn new() -> Result<Self, String> {
-        match Self::load() {
+    /// Load the configuration from the default path, or the given path if one is given. It returns
+    /// a properly  instantiated configuration tree in case of success, or a message describing the
+    /// error in case of error.
+    ///
+    /// The default path is set at compilation time, by using the CONFIGURATION_PATH environment
+    /// variable. When this variable is not set, it defaults to `configuration.toml`, loading the
+    /// file relatively to the executable launch.
+    pub fn new(path: Option<String>) -> Result<Self, String> {
+        match Self::load(path) {
             Ok(configuration) => {
                 match configuration.validate() {
                     Ok(_) => {},
@@ -100,11 +109,17 @@ impl Configuration {
         }
     }
 
-    fn load() -> Result<Self, ConfigError> {
+    fn load(path: Option<String>) -> Result<Self, ConfigError> {
         let mut configuration = Config::default();
 
         let file =
-            File::with_name("configuration.toml")
+            match path {
+                Some(path) => File::with_name(&path),
+                None => match option_env!("CONFIGURATION_PATH") {
+                    Some(path) => File::with_name(path),
+                    None => File::with_name("configuration.toml"),
+                },
+            }
             .format(FileFormat::Toml)
             .required(false)
         ;

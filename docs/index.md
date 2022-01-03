@@ -14,6 +14,7 @@ Once the job execution time is past, Kairoi automatically triggers a job executi
 - [Kairoi Instructions Reference](instructions.md)
 - [Kairoi Runners Documentation](runners.md)
 - [Kairoi Server Configuration Reference](configuration.md)
+- [Kairoi Compilation Documentation](compilation.md)
 
 ## Usage
 
