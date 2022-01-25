@@ -38,6 +38,7 @@ pub struct Database {
 pub type ExecutionSender = UnderlyingExecutionSender;
 pub type ExecutionReceiver = UnderlyingExecutionReceiver;
 pub struct Configuration {
+    pub persistence: bool,
     pub storage_persistence_fsync_on_persist: bool,
     pub framerate: u16,
 }
@@ -52,6 +53,7 @@ impl Database {
         thread::Builder::new().name("kairoi/db".to_string()).spawn(move || {
             let mut database = Database {
                 storage: Storage::new(StorageConfiguration {
+                    persistence: configuration.persistence,
                     persistence_fsync_on_persist: configuration.storage_persistence_fsync_on_persist,
                 }),
                 execution_client: ExecutionClient::new(execution_link),

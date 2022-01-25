@@ -65,6 +65,7 @@ fn main() {
         query_reverse_side,
         (database_execution_request_sender, database_execution_response_receiver),
         DatabaseConfiguration {
+            persistence: configuration.database.persistence,
             storage_persistence_fsync_on_persist: configuration.database.fsync_on_persist,
             framerate: configuration.database.framerate as u16,
         },
