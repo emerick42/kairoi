@@ -26,7 +26,7 @@ This server will start, initializing with no data, and listening to clients on `
 
 ## Usage
 
-While the main user-defined configuration of a Kairoi server comes from the `configuration.toml` file (see the [Kairoi Server Configuration Reference](configuration.toml)), the server binary provides a few handy arguments.
+While the main user-defined configuration of a Kairoi server comes from the `configuration.toml` file (see the [Kairoi Server Configuration Reference](configuration.md)), the server binary provides a few handy arguments.
 
 ### Help
 
